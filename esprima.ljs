@@ -41,20 +41,453 @@ parseFunctionSourceElements: true, parseVariableIdentifier: true,
 parseLeftHandSideExpression: true,
 parseStatement: true, parseSourceElement: true */
 
-extern RegExp, Error, String, parseInt, parseFloat, Array, Object, esprima;
+extern console;
+
+extern RegExp, Error, String, parseInt, parseFloat, Array, Object, esprima, process, memory;
 typedef dyn dyn_func();
 typedef dyn dyn2dyn(dyn);
 typedef dyn2dyn dyn2dyn2dyn(dyn);
 
-struct NodeT {
-    u8 type;
-};
+typedef byte *malloc_ty(uint);
+let malloc_ty malloc;
+if (typeof process !== "undefined") {
+    malloc = (malloc_ty)(require('memory').malloc);
+} else {
+    malloc = (malloc_ty)(memory.malloc);
+}
 
-typedef NodeT EmptyStatementT;
+struct StringT {
+    byte* start;
+    uint len;
+}
+
+// Node objects
+
+// Programs
 
 struct ProgramT {
-    NodeT *body;
+    u8 type;
+    StatementListT* body;
 };
+
+// Statements
+
+union StatementU {
+    BlockStatementT* block;
+    ExpressionStatementT* expression;
+    IfStatementT* ifStatement;
+    LabeledStatementT* labeled;
+    BreakStatementT* breakStatement;
+    ContinueStatementT* continueStatement;
+    WithStatementT* withStatement;
+    SwitchStatementT* switchStatement;
+    ReturnStatementT* returnStatement;
+    ThrowStatementT* throwStatement;
+    TryStatementT* tryStatement;
+    WhileStatementT* whileStatement;
+    DoWhileStatementT* doWhile;
+    ForStatementT* forStatement;
+    ForInStatementT* forIn;
+    LetStatementT* letStatement;
+    DebuggerStatementT* debuggerStatement;
+    VariableDeclarationT* variableDeclaration;
+    FunctionDeclarationT* functionDeclaration;
+};
+struct StatementT {
+    u8 type;
+    StatementU c;
+};
+struct StatementListT {
+    StatementT* elem;
+    StatementListT* next;
+};
+
+typedef StatementT EmptyStatementT;
+
+struct BlockStatementT {
+    StatementListT* body;
+};
+
+struct ExpressionStatementT {
+    u8 type;
+    ExpressionT* expression;
+};
+
+struct IfStatementT {
+    ExpressionT* test;
+    StatementT* consequent;
+    StatementT* alternate;
+};
+
+struct LabeledStatementT {
+    IdentifierT* label;
+    StatementT* body;
+};
+
+struct BreakStatementT {
+    IdentifierT* label;
+};
+
+struct ContinueStatementT {
+    IdentifierT* label;
+};
+
+struct WithStatementT {
+    ExpressionT* object;
+    StatementT* body;
+};
+
+struct SwitchStatementT {
+    ExpressionT* discriminant;
+    SwitchCaseListT* cases;
+    u8 lexical;
+};
+
+struct ReturnStatementT {
+    ExpressionT* argument;
+};
+
+struct ThrowStatementT {
+    ExpressionT* argument;
+};
+
+struct TryStatementT {
+    BlockStatementT* block;
+    CatchClauseListT* handlers;
+    BlockStatementT* finalizer;
+};
+
+struct WhileStatementT {
+    ExpressionT* test;
+    StatementT* body;
+};
+
+struct DoWhileStatementT {
+    StatementT* body;
+    ExpressionT* test;
+};
+
+union ForInitU {
+    VariableDeclarationT* variableDeclaration;
+    ExpressionT* expression;
+};
+struct ForStatementT {
+    u8 initType;
+    ForInitU* init;
+    ExpressionT* test;
+    ExpressionT* update;
+    StatementT* body;
+};
+
+struct ForInStatementT {
+    u8 leftType;
+    ForInitU* left;
+    ExpressionT* right;
+    StatementT* body;
+    u8 each;
+};
+
+struct LetStatementT {
+    LetHeadListT* head;
+    StatementT* body;
+};
+struct LetHeadListT {
+    LetHeadT* elem;
+    LetHeadListT* next;
+};
+struct LetHeadT {
+    PatternT* id;
+    ExpressionT* init;
+};
+
+typedef StatementT DebuggerStatementT;
+
+
+// Declarations
+
+union DeclarationU {
+    FunctionDeclarationT* functionDeclaration;
+    VariableDeclarationT* variableDeclaration;
+}
+struct DeclarationT {
+    u8 type;
+    DeclarationU c;
+};
+
+union BlockOrExpressionU {
+    BlockStatementT* block;
+    ExpressionT* expression;
+};
+struct MetaT {
+    u8 thunk;
+    u8 closed;
+    u8 generator;
+    u8 expression;
+};
+struct FunctionDeclarationT {
+    IdentifierT* id;
+    PatternListT* params;
+    u8 bodyType;
+    BlockOrExpressionU body;
+    MetaT meta;
+};
+
+const u8 VAR_KIND_VAR = 0;
+const u8 VAR_KIND_LET = 1;
+const u8 VAR_KIND_CONST = 2;
+struct VariableDeclarationT {
+    VariableDeclaratorListT* declarations;
+    u8 kind;
+};
+
+struct VariableDeclaratorT {
+    PatternT* id;
+    ExpressionT* init;
+};
+struct VariableDeclaratorListT {
+    VariableDeclaratorT* elem;
+    VariableDeclaratorListT* next;
+};
+
+
+// Expressions
+
+union ExpressionU {
+    ArrayExpressionT* array;
+    ObjectExpressionT* object;
+    FunctionExpressionT* functionExpression;
+    SequenceExpressionT* sequence;
+    UnaryExpressionT* unary;
+    BinaryExpressionT* binary;
+    AssignmentExpressionT* assignment;
+    UpdateExpressionT* update;
+    LogicalExpressionT* logical;
+    ConditionalExpressionT* conditional;
+    NewExpressionT* newExpression;
+    CallExpressionT* call;
+    MemberExpressionT* member;
+    // YieldExpressionT* yieldExpression;
+    IdentifierT* identifier;
+    LiteralT* literal;
+};
+struct ExpressionT {
+    u8 type;
+    ExpressionU c;
+};
+struct ExpressionListT {
+    ExpressionT* elem;
+    ExpressionListT* next;
+};
+
+typedef ExpressionT ThisExpressionT;
+
+struct ArrayExpressionT {
+    ExpressionListT* elements;
+};
+
+struct ObjectExpressionT {
+    ObjectPropertiesListT* properties;
+};
+
+struct FunctionExpressionT {
+    IdentifierT* id;
+    PatternListT* params;
+    u8 bodyType;
+    BlockOrExpressionU body;
+    MetaT meta;
+};
+
+struct SequenceExpressionT {
+    ExpressionListT* expressions;
+};
+
+struct UnaryExpressionT {
+    u8 operator;
+    u8 prefix;
+    ExpressionT* argument;
+};
+
+struct BinaryExpressionT {
+    u8 operator;
+    ExpressionT* left;
+    ExpressionT* right;
+};
+
+struct AssignmentExpressionT {
+    u8 operator;
+    ExpressionT* left;
+    ExpressionT* right;
+};
+
+struct UpdateExpressionT {
+    u8 operator;
+    ExpressionT* argument;
+    u8 prefix;
+};
+
+struct LogicalExpressionT {
+    u8 operator;
+    ExpressionT* left;
+    ExpressionT* right;
+};
+
+struct ConditionalExpressionT {
+    ExpressionT* test;
+    ExpressionT* alternate;
+    ExpressionT* consequent;
+};
+
+struct NewExpressionT {
+    ExpressionT* callee;
+    ExpressionListT* arguments;
+};
+
+struct CallExpressionT {
+    ExpressionT* callee;
+    ExpressionListT* arguments;
+};
+
+union IdentifierOrExpressionU {
+    IdentifierT* identifier;
+    ExpressionT* expression;
+};
+struct MemberExpressionT {
+    ExpressionT* object;
+    u8 propertyType;
+    IdentifierOrExpressionU property;
+    u8 computed;
+};
+
+// struct YieldExpressionT {
+//     ExpressionT* argument;
+// };
+
+// struct ComprehensionExpressionT {
+//     ExpressionT* body;
+//     ComprehensionBlockListT* blocks;
+//     ExpressionT* filter;
+// };
+
+// struct GeneratorExpressionT {
+//     ExpressionT* body;
+//     ComprehensionBlockListT* blocks;
+//     ExpressionT* filter;
+// };
+
+// a couple other spidermonkey-specific expresssions go here
+
+
+// Patterns
+
+union PatternU {
+    ObjectPatternT* object;
+    ArrayPatternT* array;
+    ExpressionT* expression;
+    IdentifierT* identifier;
+};
+struct PatternT {
+    u8 type;
+    PatternU c;
+};
+struct PatternListT {
+    PatternT* elem;
+    PatternListT* next;
+};
+
+const u8 OBJECT_KIND_INIT = 0;
+const u8 OBJECT_KIND_GET = 1;
+const u8 OBJECT_KIND_SET = 2;
+struct ObjectPatternT {
+    ObjectPropertiesListT* properties;
+};
+union LiteralOrIdentifierU {
+    LiteralT* literal;
+    IdentifierT* identifier;
+};
+struct LiteralOrIdentifierT {
+    u8 type;
+    LiteralOrIdentifierU c;
+};
+struct ObjectPropertiesT {
+    LiteralOrIdentifierT* key;
+    PatternT* value;
+    u8 kind;
+}
+struct ObjectPropertiesListT {
+    ObjectPropertiesT* elem;
+    ObjectPropertiesListT* next;
+};
+
+struct ArrayPatternT {
+    PatternListT* elements;
+};
+
+// Clauses
+
+struct SwitchCaseT {
+    ExpressionT* test;
+    StatementListT* consequent;
+};
+struct SwitchCaseListT {
+    SwitchCaseT* elem;
+    SwitchCaseListT* next;
+};
+
+struct CatchClauseT {
+    PatternT* param;
+    ExpressionT* guard;
+    BlockStatementT* body;
+};
+struct CatchClauseListT {
+    CatchClauseT* elem;
+    CatchClauseListT* next;
+};
+
+
+// Miscellaneous
+
+struct IdentifierT {
+    StringT* name;
+};
+
+struct LiteralT {
+    u8 type;
+    StringT* value;
+    StringT* raw;
+};
+
+struct AssignmentOperatorT {
+    u8 token;
+};
+
+
+
+
+
+
+
+typedef ExpressionT* ExpressionF();
+typedef BlockStatementT* BlockStatementF();
+typedef CallExpressionT* CallExpressionF(ExpressionT*);
+typedef CatchClauseT* CatchClauseF();
+typedef MemberExpressionT* MemberExpressionF(ExpressionT*);
+typedef VariableDeclarationT* VariableDeclarationF_u8(u8);
+typedef VariableDeclarationT* VariableDeclarationF();
+typedef FunctionDeclarationT* FunctionDeclarationF();
+typedef FunctionExpressionT* FunctionExpressionF();
+typedef IdentifierT* IdentifierF();
+typedef ObjectPropertiesT* ObjectPropertiesF();
+typedef LiteralOrIdentifierT* LiteralOrIdentifierF();
+typedef FunctionExpressionT* FunctionExpressionF_PatternListT_dyn(PatternListT*, dyn);
+typedef StatementT* StatementF();
+typedef SwitchCaseT* SwitchCaseF();
+typedef VariableDeclaratorT* VariableDeclaratorF(u8);
+typedef LiteralT* LiteralF(dyn);
+typedef ProgramT* ProgramF(dyn);
+
+
+
+
 
 struct SyntaxT {
     u8 AssignmentExpression;
@@ -97,6 +530,8 @@ struct SyntaxT {
     u8 VariableDeclarator;
     u8 WhileStatement;
     u8 WithStatement;
+    u8 Expression;
+    u8 LetStatement;
 };
 
 
@@ -224,6 +659,8 @@ struct SyntaxT {
     Syntax->VariableDeclarator = 37;
     Syntax->WhileStatement = 38;
     Syntax->WithStatement = 39;
+    Syntax->Expression = 40;
+    Syntax->LetStatement = 41;
 
     PropertyKind = {
         Data: 1,
@@ -272,6 +709,305 @@ struct SyntaxT {
         NonAsciiIdentifierStart: new RegExp('[\xaa\xb5\xba\xc0-\xd6\xd8-\xf6\xf8-\u02c1\u02c6-\u02d1\u02e0-\u02e4\u02ec\u02ee\u0370-\u0374\u0376\u0377\u037a-\u037d\u0386\u0388-\u038a\u038c\u038e-\u03a1\u03a3-\u03f5\u03f7-\u0481\u048a-\u0527\u0531-\u0556\u0559\u0561-\u0587\u05d0-\u05ea\u05f0-\u05f2\u0620-\u064a\u066e\u066f\u0671-\u06d3\u06d5\u06e5\u06e6\u06ee\u06ef\u06fa-\u06fc\u06ff\u0710\u0712-\u072f\u074d-\u07a5\u07b1\u07ca-\u07ea\u07f4\u07f5\u07fa\u0800-\u0815\u081a\u0824\u0828\u0840-\u0858\u08a0\u08a2-\u08ac\u0904-\u0939\u093d\u0950\u0958-\u0961\u0971-\u0977\u0979-\u097f\u0985-\u098c\u098f\u0990\u0993-\u09a8\u09aa-\u09b0\u09b2\u09b6-\u09b9\u09bd\u09ce\u09dc\u09dd\u09df-\u09e1\u09f0\u09f1\u0a05-\u0a0a\u0a0f\u0a10\u0a13-\u0a28\u0a2a-\u0a30\u0a32\u0a33\u0a35\u0a36\u0a38\u0a39\u0a59-\u0a5c\u0a5e\u0a72-\u0a74\u0a85-\u0a8d\u0a8f-\u0a91\u0a93-\u0aa8\u0aaa-\u0ab0\u0ab2\u0ab3\u0ab5-\u0ab9\u0abd\u0ad0\u0ae0\u0ae1\u0b05-\u0b0c\u0b0f\u0b10\u0b13-\u0b28\u0b2a-\u0b30\u0b32\u0b33\u0b35-\u0b39\u0b3d\u0b5c\u0b5d\u0b5f-\u0b61\u0b71\u0b83\u0b85-\u0b8a\u0b8e-\u0b90\u0b92-\u0b95\u0b99\u0b9a\u0b9c\u0b9e\u0b9f\u0ba3\u0ba4\u0ba8-\u0baa\u0bae-\u0bb9\u0bd0\u0c05-\u0c0c\u0c0e-\u0c10\u0c12-\u0c28\u0c2a-\u0c33\u0c35-\u0c39\u0c3d\u0c58\u0c59\u0c60\u0c61\u0c85-\u0c8c\u0c8e-\u0c90\u0c92-\u0ca8\u0caa-\u0cb3\u0cb5-\u0cb9\u0cbd\u0cde\u0ce0\u0ce1\u0cf1\u0cf2\u0d05-\u0d0c\u0d0e-\u0d10\u0d12-\u0d3a\u0d3d\u0d4e\u0d60\u0d61\u0d7a-\u0d7f\u0d85-\u0d96\u0d9a-\u0db1\u0db3-\u0dbb\u0dbd\u0dc0-\u0dc6\u0e01-\u0e30\u0e32\u0e33\u0e40-\u0e46\u0e81\u0e82\u0e84\u0e87\u0e88\u0e8a\u0e8d\u0e94-\u0e97\u0e99-\u0e9f\u0ea1-\u0ea3\u0ea5\u0ea7\u0eaa\u0eab\u0ead-\u0eb0\u0eb2\u0eb3\u0ebd\u0ec0-\u0ec4\u0ec6\u0edc-\u0edf\u0f00\u0f40-\u0f47\u0f49-\u0f6c\u0f88-\u0f8c\u1000-\u102a\u103f\u1050-\u1055\u105a-\u105d\u1061\u1065\u1066\u106e-\u1070\u1075-\u1081\u108e\u10a0-\u10c5\u10c7\u10cd\u10d0-\u10fa\u10fc-\u1248\u124a-\u124d\u1250-\u1256\u1258\u125a-\u125d\u1260-\u1288\u128a-\u128d\u1290-\u12b0\u12b2-\u12b5\u12b8-\u12be\u12c0\u12c2-\u12c5\u12c8-\u12d6\u12d8-\u1310\u1312-\u1315\u1318-\u135a\u1380-\u138f\u13a0-\u13f4\u1401-\u166c\u166f-\u167f\u1681-\u169a\u16a0-\u16ea\u16ee-\u16f0\u1700-\u170c\u170e-\u1711\u1720-\u1731\u1740-\u1751\u1760-\u176c\u176e-\u1770\u1780-\u17b3\u17d7\u17dc\u1820-\u1877\u1880-\u18a8\u18aa\u18b0-\u18f5\u1900-\u191c\u1950-\u196d\u1970-\u1974\u1980-\u19ab\u19c1-\u19c7\u1a00-\u1a16\u1a20-\u1a54\u1aa7\u1b05-\u1b33\u1b45-\u1b4b\u1b83-\u1ba0\u1bae\u1baf\u1bba-\u1be5\u1c00-\u1c23\u1c4d-\u1c4f\u1c5a-\u1c7d\u1ce9-\u1cec\u1cee-\u1cf1\u1cf5\u1cf6\u1d00-\u1dbf\u1e00-\u1f15\u1f18-\u1f1d\u1f20-\u1f45\u1f48-\u1f4d\u1f50-\u1f57\u1f59\u1f5b\u1f5d\u1f5f-\u1f7d\u1f80-\u1fb4\u1fb6-\u1fbc\u1fbe\u1fc2-\u1fc4\u1fc6-\u1fcc\u1fd0-\u1fd3\u1fd6-\u1fdb\u1fe0-\u1fec\u1ff2-\u1ff4\u1ff6-\u1ffc\u2071\u207f\u2090-\u209c\u2102\u2107\u210a-\u2113\u2115\u2119-\u211d\u2124\u2126\u2128\u212a-\u212d\u212f-\u2139\u213c-\u213f\u2145-\u2149\u214e\u2160-\u2188\u2c00-\u2c2e\u2c30-\u2c5e\u2c60-\u2ce4\u2ceb-\u2cee\u2cf2\u2cf3\u2d00-\u2d25\u2d27\u2d2d\u2d30-\u2d67\u2d6f\u2d80-\u2d96\u2da0-\u2da6\u2da8-\u2dae\u2db0-\u2db6\u2db8-\u2dbe\u2dc0-\u2dc6\u2dc8-\u2dce\u2dd0-\u2dd6\u2dd8-\u2dde\u2e2f\u3005-\u3007\u3021-\u3029\u3031-\u3035\u3038-\u303c\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fc-\u30ff\u3105-\u312d\u3131-\u318e\u31a0-\u31ba\u31f0-\u31ff\u3400-\u4db5\u4e00-\u9fcc\ua000-\ua48c\ua4d0-\ua4fd\ua500-\ua60c\ua610-\ua61f\ua62a\ua62b\ua640-\ua66e\ua67f-\ua697\ua6a0-\ua6ef\ua717-\ua71f\ua722-\ua788\ua78b-\ua78e\ua790-\ua793\ua7a0-\ua7aa\ua7f8-\ua801\ua803-\ua805\ua807-\ua80a\ua80c-\ua822\ua840-\ua873\ua882-\ua8b3\ua8f2-\ua8f7\ua8fb\ua90a-\ua925\ua930-\ua946\ua960-\ua97c\ua984-\ua9b2\ua9cf\uaa00-\uaa28\uaa40-\uaa42\uaa44-\uaa4b\uaa60-\uaa76\uaa7a\uaa80-\uaaaf\uaab1\uaab5\uaab6\uaab9-\uaabd\uaac0\uaac2\uaadb-\uaadd\uaae0-\uaaea\uaaf2-\uaaf4\uab01-\uab06\uab09-\uab0e\uab11-\uab16\uab20-\uab26\uab28-\uab2e\uabc0-\uabe2\uac00-\ud7a3\ud7b0-\ud7c6\ud7cb-\ud7fb\uf900-\ufa6d\ufa70-\ufad9\ufb00-\ufb06\ufb13-\ufb17\ufb1d\ufb1f-\ufb28\ufb2a-\ufb36\ufb38-\ufb3c\ufb3e\ufb40\ufb41\ufb43\ufb44\ufb46-\ufbb1\ufbd3-\ufd3d\ufd50-\ufd8f\ufd92-\ufdc7\ufdf0-\ufdfb\ufe70-\ufe74\ufe76-\ufefc\uff21-\uff3a\uff41-\uff5a\uff66-\uffbe\uffc2-\uffc7\uffca-\uffcf\uffd2-\uffd7\uffda-\uffdc]'),
         NonAsciiIdentifierPart: new RegExp('[\xaa\xb5\xba\xc0-\xd6\xd8-\xf6\xf8-\u02c1\u02c6-\u02d1\u02e0-\u02e4\u02ec\u02ee\u0300-\u0374\u0376\u0377\u037a-\u037d\u0386\u0388-\u038a\u038c\u038e-\u03a1\u03a3-\u03f5\u03f7-\u0481\u0483-\u0487\u048a-\u0527\u0531-\u0556\u0559\u0561-\u0587\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7\u05d0-\u05ea\u05f0-\u05f2\u0610-\u061a\u0620-\u0669\u066e-\u06d3\u06d5-\u06dc\u06df-\u06e8\u06ea-\u06fc\u06ff\u0710-\u074a\u074d-\u07b1\u07c0-\u07f5\u07fa\u0800-\u082d\u0840-\u085b\u08a0\u08a2-\u08ac\u08e4-\u08fe\u0900-\u0963\u0966-\u096f\u0971-\u0977\u0979-\u097f\u0981-\u0983\u0985-\u098c\u098f\u0990\u0993-\u09a8\u09aa-\u09b0\u09b2\u09b6-\u09b9\u09bc-\u09c4\u09c7\u09c8\u09cb-\u09ce\u09d7\u09dc\u09dd\u09df-\u09e3\u09e6-\u09f1\u0a01-\u0a03\u0a05-\u0a0a\u0a0f\u0a10\u0a13-\u0a28\u0a2a-\u0a30\u0a32\u0a33\u0a35\u0a36\u0a38\u0a39\u0a3c\u0a3e-\u0a42\u0a47\u0a48\u0a4b-\u0a4d\u0a51\u0a59-\u0a5c\u0a5e\u0a66-\u0a75\u0a81-\u0a83\u0a85-\u0a8d\u0a8f-\u0a91\u0a93-\u0aa8\u0aaa-\u0ab0\u0ab2\u0ab3\u0ab5-\u0ab9\u0abc-\u0ac5\u0ac7-\u0ac9\u0acb-\u0acd\u0ad0\u0ae0-\u0ae3\u0ae6-\u0aef\u0b01-\u0b03\u0b05-\u0b0c\u0b0f\u0b10\u0b13-\u0b28\u0b2a-\u0b30\u0b32\u0b33\u0b35-\u0b39\u0b3c-\u0b44\u0b47\u0b48\u0b4b-\u0b4d\u0b56\u0b57\u0b5c\u0b5d\u0b5f-\u0b63\u0b66-\u0b6f\u0b71\u0b82\u0b83\u0b85-\u0b8a\u0b8e-\u0b90\u0b92-\u0b95\u0b99\u0b9a\u0b9c\u0b9e\u0b9f\u0ba3\u0ba4\u0ba8-\u0baa\u0bae-\u0bb9\u0bbe-\u0bc2\u0bc6-\u0bc8\u0bca-\u0bcd\u0bd0\u0bd7\u0be6-\u0bef\u0c01-\u0c03\u0c05-\u0c0c\u0c0e-\u0c10\u0c12-\u0c28\u0c2a-\u0c33\u0c35-\u0c39\u0c3d-\u0c44\u0c46-\u0c48\u0c4a-\u0c4d\u0c55\u0c56\u0c58\u0c59\u0c60-\u0c63\u0c66-\u0c6f\u0c82\u0c83\u0c85-\u0c8c\u0c8e-\u0c90\u0c92-\u0ca8\u0caa-\u0cb3\u0cb5-\u0cb9\u0cbc-\u0cc4\u0cc6-\u0cc8\u0cca-\u0ccd\u0cd5\u0cd6\u0cde\u0ce0-\u0ce3\u0ce6-\u0cef\u0cf1\u0cf2\u0d02\u0d03\u0d05-\u0d0c\u0d0e-\u0d10\u0d12-\u0d3a\u0d3d-\u0d44\u0d46-\u0d48\u0d4a-\u0d4e\u0d57\u0d60-\u0d63\u0d66-\u0d6f\u0d7a-\u0d7f\u0d82\u0d83\u0d85-\u0d96\u0d9a-\u0db1\u0db3-\u0dbb\u0dbd\u0dc0-\u0dc6\u0dca\u0dcf-\u0dd4\u0dd6\u0dd8-\u0ddf\u0df2\u0df3\u0e01-\u0e3a\u0e40-\u0e4e\u0e50-\u0e59\u0e81\u0e82\u0e84\u0e87\u0e88\u0e8a\u0e8d\u0e94-\u0e97\u0e99-\u0e9f\u0ea1-\u0ea3\u0ea5\u0ea7\u0eaa\u0eab\u0ead-\u0eb9\u0ebb-\u0ebd\u0ec0-\u0ec4\u0ec6\u0ec8-\u0ecd\u0ed0-\u0ed9\u0edc-\u0edf\u0f00\u0f18\u0f19\u0f20-\u0f29\u0f35\u0f37\u0f39\u0f3e-\u0f47\u0f49-\u0f6c\u0f71-\u0f84\u0f86-\u0f97\u0f99-\u0fbc\u0fc6\u1000-\u1049\u1050-\u109d\u10a0-\u10c5\u10c7\u10cd\u10d0-\u10fa\u10fc-\u1248\u124a-\u124d\u1250-\u1256\u1258\u125a-\u125d\u1260-\u1288\u128a-\u128d\u1290-\u12b0\u12b2-\u12b5\u12b8-\u12be\u12c0\u12c2-\u12c5\u12c8-\u12d6\u12d8-\u1310\u1312-\u1315\u1318-\u135a\u135d-\u135f\u1380-\u138f\u13a0-\u13f4\u1401-\u166c\u166f-\u167f\u1681-\u169a\u16a0-\u16ea\u16ee-\u16f0\u1700-\u170c\u170e-\u1714\u1720-\u1734\u1740-\u1753\u1760-\u176c\u176e-\u1770\u1772\u1773\u1780-\u17d3\u17d7\u17dc\u17dd\u17e0-\u17e9\u180b-\u180d\u1810-\u1819\u1820-\u1877\u1880-\u18aa\u18b0-\u18f5\u1900-\u191c\u1920-\u192b\u1930-\u193b\u1946-\u196d\u1970-\u1974\u1980-\u19ab\u19b0-\u19c9\u19d0-\u19d9\u1a00-\u1a1b\u1a20-\u1a5e\u1a60-\u1a7c\u1a7f-\u1a89\u1a90-\u1a99\u1aa7\u1b00-\u1b4b\u1b50-\u1b59\u1b6b-\u1b73\u1b80-\u1bf3\u1c00-\u1c37\u1c40-\u1c49\u1c4d-\u1c7d\u1cd0-\u1cd2\u1cd4-\u1cf6\u1d00-\u1de6\u1dfc-\u1f15\u1f18-\u1f1d\u1f20-\u1f45\u1f48-\u1f4d\u1f50-\u1f57\u1f59\u1f5b\u1f5d\u1f5f-\u1f7d\u1f80-\u1fb4\u1fb6-\u1fbc\u1fbe\u1fc2-\u1fc4\u1fc6-\u1fcc\u1fd0-\u1fd3\u1fd6-\u1fdb\u1fe0-\u1fec\u1ff2-\u1ff4\u1ff6-\u1ffc\u200c\u200d\u203f\u2040\u2054\u2071\u207f\u2090-\u209c\u20d0-\u20dc\u20e1\u20e5-\u20f0\u2102\u2107\u210a-\u2113\u2115\u2119-\u211d\u2124\u2126\u2128\u212a-\u212d\u212f-\u2139\u213c-\u213f\u2145-\u2149\u214e\u2160-\u2188\u2c00-\u2c2e\u2c30-\u2c5e\u2c60-\u2ce4\u2ceb-\u2cf3\u2d00-\u2d25\u2d27\u2d2d\u2d30-\u2d67\u2d6f\u2d7f-\u2d96\u2da0-\u2da6\u2da8-\u2dae\u2db0-\u2db6\u2db8-\u2dbe\u2dc0-\u2dc6\u2dc8-\u2dce\u2dd0-\u2dd6\u2dd8-\u2dde\u2de0-\u2dff\u2e2f\u3005-\u3007\u3021-\u302f\u3031-\u3035\u3038-\u303c\u3041-\u3096\u3099\u309a\u309d-\u309f\u30a1-\u30fa\u30fc-\u30ff\u3105-\u312d\u3131-\u318e\u31a0-\u31ba\u31f0-\u31ff\u3400-\u4db5\u4e00-\u9fcc\ua000-\ua48c\ua4d0-\ua4fd\ua500-\ua60c\ua610-\ua62b\ua640-\ua66f\ua674-\ua67d\ua67f-\ua697\ua69f-\ua6f1\ua717-\ua71f\ua722-\ua788\ua78b-\ua78e\ua790-\ua793\ua7a0-\ua7aa\ua7f8-\ua827\ua840-\ua873\ua880-\ua8c4\ua8d0-\ua8d9\ua8e0-\ua8f7\ua8fb\ua900-\ua92d\ua930-\ua953\ua960-\ua97c\ua980-\ua9c0\ua9cf-\ua9d9\uaa00-\uaa36\uaa40-\uaa4d\uaa50-\uaa59\uaa60-\uaa76\uaa7a\uaa7b\uaa80-\uaac2\uaadb-\uaadd\uaae0-\uaaef\uaaf2-\uaaf6\uab01-\uab06\uab09-\uab0e\uab11-\uab16\uab20-\uab26\uab28-\uab2e\uabc0-\uabea\uabec\uabed\uabf0-\uabf9\uac00-\ud7a3\ud7b0-\ud7c6\ud7cb-\ud7fb\uf900-\ufa6d\ufa70-\ufad9\ufb00-\ufb06\ufb13-\ufb17\ufb1d-\ufb28\ufb2a-\ufb36\ufb38-\ufb3c\ufb3e\ufb40\ufb41\ufb43\ufb44\ufb46-\ufbb1\ufbd3-\ufd3d\ufd50-\ufd8f\ufd92-\ufdc7\ufdf0-\ufdfb\ufe00-\ufe0f\ufe20-\ufe26\ufe33\ufe34\ufe4d-\ufe4f\ufe70-\ufe74\ufe76-\ufefc\uff10-\uff19\uff21-\uff3a\uff3f\uff41-\uff5a\uff66-\uffbe\uffc2-\uffc7\uffca-\uffcf\uffd2-\uffd7\uffda-\uffdc]')
     };
+
+    function ExpressionT* castExpression(obj, u8 fromType) {
+        let ExpressionT* expr = new ExpressionT;
+        expr->type = fromType;
+        switch (fromType) {
+        case Syntax->ArrayExpression:
+            expr->c.array = (ArrayExpressionT*)(obj);
+            break;
+        case Syntax->ObjectExpression:
+            expr->c.object = (ObjectExpressionT*)(obj);
+            break;
+        case Syntax->FunctionExpression:
+            expr->c.functionExpression = (FunctionExpressionT*)(obj);
+            break;
+        case Syntax->SequenceExpression:
+            expr->c.sequence = (SequenceExpressionT*)(obj);
+            break;
+        case Syntax->UnaryExpression:
+            expr->c.unary = (UnaryExpressionT*)(obj);
+            break;
+        case Syntax->BinaryExpression:
+            expr->c.binary = (BinaryExpressionT*)(obj);
+            break;
+        case Syntax->AssignmentExpression:
+            expr->c.assignment = (AssignmentExpressionT*)(obj);
+            break;
+        case Syntax->UpdateExpression:
+            expr->c.update = (UpdateExpressionT*)(obj);
+            break;
+        case Syntax->LogicalExpression:
+            expr->c.logical = (LogicalExpressionT*)(obj);
+            break;
+        case Syntax->ConditionalExpression:
+            expr->c.conditional = (ConditionalExpressionT*)(obj);
+            break;
+        case Syntax->NewExpression:
+            expr->c.newExpression = (NewExpressionT*)(obj);
+            break;
+        case Syntax->CallExpression:
+            expr->c.call = (CallExpressionT*)(obj);
+            break;
+        case Syntax->MemberExpression:
+            expr->c.member = (MemberExpressionT*)(obj);
+            break;
+        case Syntax->Identifier:
+            expr->c.identifier = (IdentifierT*)(obj);
+            break;
+        case Syntax->Literal:
+            expr->c.literal = (LiteralT*)(obj);
+            break;
+        default:
+            throw new Error('Unknown type to cast: ' + fromType);
+        }
+        return expr;
+    }
+
+    function PatternT* castPattern(obj, u8 fromType) {
+        let PatternT* pattern = new PatternT;
+        pattern->type = fromType;
+        switch (fromType) {
+        case Syntax->Expression:
+            pattern->c.expression = (ExpressionT*)(obj);
+            break;
+        case Syntax->Identifier:
+            pattern->c.identifier = (IdentifierT*)(obj);
+            break;
+        default:
+            throw new Error('Unknown type to cast: ' + fromType);
+        }
+        return pattern;
+    }
+
+    function StatementT* castStatement(obj, u8 fromType) {
+        let StatementT* statement = new StatementT;
+        statement->type = fromType;
+        switch (fromType) {
+        case Syntax->BlockStatement:
+            statement->c.block = (BlockStatementT*)(obj);
+            break;
+        case Syntax->ExpressionStatement:
+            statement->c.expression = (ExpressionStatementT*)(obj);
+            break;
+        case Syntax->IfStatement:
+            statement->c.ifStatement = (IfStatementT*)(obj);
+            break;
+        case Syntax->LabeledStatement:
+            statement->c.labeled = (LabeledStatementT*)(obj);
+            break;
+        case Syntax->BreakStatement:
+            statement->c.breakStatement = (BreakStatementT*)(obj);
+            break;
+        case Syntax->ContinueStatement:
+            statement->c.continueStatement = (ContinueStatementT*)(obj);
+            break;
+        case Syntax->WithStatement:
+            statement->c.withStatement = (WithStatementT*)(obj);
+            break;
+        case Syntax->SwitchStatement:
+            statement->c.switchStatement = (SwitchStatementT*)(obj);
+            break;
+        case Syntax->ReturnStatement:
+            statement->c.returnStatement = (ReturnStatementT*)(obj);
+            break;
+        case Syntax->ThrowStatement:
+            statement->c.throwStatement = (ThrowStatementT*)(obj);
+            break;
+        case Syntax->TryStatement:
+            statement->c.tryStatement = (TryStatementT*)(obj);
+            break;
+        case Syntax->WhileStatement:
+            statement->c.whileStatement = (WhileStatementT*)(obj);
+            break;
+        case Syntax->DoWhileStatement:
+            statement->c.doWhile = (DoWhileStatementT*)(obj);
+            break;
+        case Syntax->ForStatement:
+            statement->c.forStatement = (ForStatementT*)(obj);
+            break;
+        case Syntax->ForInStatement:
+            statement->c.forIn = (ForInStatementT*)(obj);
+            break;
+        case Syntax->LetStatement:
+            statement->c.letStatement = (LetStatementT*)(obj);
+            break;
+        case Syntax->DebuggerStatement:
+            statement->c.debuggerStatement = (DebuggerStatementT*)(obj);
+            break;
+        case Syntax->VariableDeclaration:
+            statement->c.variableDeclaration = (VariableDeclarationT*)(obj);
+            break;
+        case Syntax->FunctionDeclaration:
+            statement->c.functionDeclaration = (FunctionDeclarationT*)(obj);
+            break;
+        default:
+            throw new Error('Unknown type to cast: ' + fromType);
+        }
+        return statement;
+    }
+
+    function uint statementListLength(StatementListT* list) {
+        let uint l = 0;
+        let StatementListT* cur = list;
+        while (cur !== null) {
+            cur = cur->next;
+            l++;
+        }
+        return l-1;
+    }
+
+    function uint varDeclListLength(VariableDeclaratorListT* list) {
+        let uint l = 0;
+        let VariableDeclaratorListT* cur = list;
+        while (cur !== null) {
+            cur = cur->next;
+            l++;
+        }
+        return l-1;
+    }
+
+    function uint catchClauseListLength(CatchClauseListT* list) {
+        let uint l = 0;
+        let CatchClauseListT* cur = list;
+        while (cur !== null) {
+            cur = cur->next;
+            l++;
+        }
+        return l-1;
+    }
+
+    function StringT* convertStr(str) {
+        let StringT* newStr = new StringT;
+        if (!str || str.length == 0) {
+            return newStr;
+        }
+        newStr->start = malloc((u32)(str.length+1));
+        let byte* cur = newStr->start;
+        for (let i=0, l=str.length; i<l; i++) {
+            *cur = (u8) (str.charCodeAt(i));
+            cur++;
+        }
+        *cur = 0;
+        return newStr;
+    }
+
+    function readStr(StringT* str) {
+        let varStr = '';
+        for (let byte* c=str->start; *c != 0; c++) {
+            varStr += String.fromCharCode(*c);
+        }
+        return varStr;
+    }
+
+    function u8 convertOperator(op) {
+        switch (op) {
+        case '.':
+            return 0;
+        case 'new':
+            return 1;
+        case '++':
+            return 2;
+        case '--':
+            return 3;
+        case '!':
+            return 4;
+        case '~':
+            return 5;
+        case '+':
+            return 6;
+        case '-':
+            return 7;
+        case 'typeof':
+            return 8;
+        case 'void':
+            return 9;
+        case 'delete':
+            return 10;
+        case '*':
+            return 11;
+        case '/':
+            return 12;
+        case '%':
+            return 13;
+        case '<<':
+            return 14;
+        case '>>':
+            return 15;
+        case '>>>':
+            return 16;
+        case '<':
+            return 17;
+        case '<=':
+            return 18;
+        case '>':
+            return 19;
+        case '>=':
+            return 20;
+        case 'in':
+            return 21;
+        case 'instanceof':
+            return 22;
+        case '==':
+            return 23;
+        case '!=':
+            return 24;
+        case '===':
+            return 25;
+        case '!==':
+            return 26;
+        case '&':
+            return 27;
+        case '^':
+            return 28;
+        case '|':
+            return 29;
+        case '&&':
+            return 30;
+        case '||':
+            return 31;
+        case '=':
+            return 32;
+        case '+=':
+            return 33;
+        case '-=':
+            return 34;
+        case '*=':
+            return 35;
+        case '/=':
+            return 36;
+        case '%=':
+            return 37;
+        case '<<=':
+            return 38;
+        case '>>=':
+            return 39;
+        case '>>>=':
+            return 40;
+        case '&=':
+            return 41;
+        case '^=':
+            return 42;
+        case '|=':
+            return 43;
+        case ',':
+            return 44;
+        default:
+            throw new Error('Unrecognized operator: ' + op);
+        }
+    }
+
+    function u8 convertVarKind(str) {
+        switch (str) {
+        case 'var':
+            return VAR_KIND_VAR;
+        case 'let':
+            return VAR_KIND_LET;
+        case 'const':
+            return VAR_KIND_CONST;
+        }
+    }
 
     // Ensure the condition is true, otherwise throw an error.
     // This is only to have a better contract semantic, i.e. another safety net
@@ -1398,24 +2134,28 @@ struct SyntaxT {
 
     // Return true if provided expression is LeftHandSideExpression
 
-    function isLeftHandSide(expr) {
-        return expr.type === Syntax->Identifier || expr.type === Syntax->MemberExpression;
+    function isLeftHandSide(ExpressionT* expr) {
+        return expr->type === Syntax->Identifier || expr->type === Syntax->MemberExpression;
     }
 
     // 11.1.4 Array Initialiser
 
-    function parseArrayInitialiser() {
-        let elements = [],
-            undef;
+    function ArrayExpressionT* parseArrayInitialiser() {
+        let ExpressionListT* elements = new ExpressionListT;
+        let ExpressionListT* cur = elements;
+        let undef;
 
         expect('[');
 
         while (!match(']')) {
             if (match(',')) {
                 lex();
-                elements.push(undef);
+                cur->next = new ExpressionListT;
+                cur = cur->next;
             } else {
-                elements.push(parseAssignmentExpression());
+                cur->elem = parseAssignmentExpression();
+                cur->next = new ExpressionListT;
+                cur = cur->next;
 
                 if (!match(']')) {
                     expect(',');
@@ -1425,16 +2165,16 @@ struct SyntaxT {
 
         expect(']');
 
-        return {
-            type: Syntax->ArrayExpression,
-            elements: elements
-        };
+        let ArrayExpressionT* expr = new ArrayExpressionT;
+        expr->elements = elements;
+        return expr;
     }
 
     // 11.1.5 Object Initialiser
 
-    function parsePropertyFunction(param, first) {
-        let previousStrict, body;
+    function FunctionExpressionT* parsePropertyFunction(PatternListT* param, first) {
+        let previousStrict;
+        let BlockStatementT* body;
 
         previousStrict = strict;
         body = parseFunctionSourceElements();
@@ -1443,16 +2183,17 @@ struct SyntaxT {
         }
         strict = previousStrict;
 
-        return {
-            type: Syntax->FunctionExpression,
-            id: null,
-            params: param,
-            body: body
-        };
+        let FunctionExpressionT* expr = new FunctionExpressionT;
+        expr->id = null;
+        expr->params = param;
+        expr->bodyType = Syntax->BlockStatement;
+        expr->body.block = body;
+        return expr;
     }
 
-    function parseObjectPropertyKey() {
+    function LiteralOrIdentifierT* parseObjectPropertyKey() {
         let token = lex();
+        let LiteralOrIdentifierT* ret = new LiteralOrIdentifierT;
 
         // Note: This function is called only from parseObjectProperty(), where
         // EOF and Punctuator tokens are already filtered out.
@@ -1461,17 +2202,24 @@ struct SyntaxT {
             if (strict && token.octal) {
                 throwError(token, Messages.StrictOctalLiteral);
             }
-            return createLiteral(token);
+            ret->type = Syntax->Literal;
+            ret->c.literal = createLiteral(token);
+            return ret;
         }
 
-        return {
-            type: Syntax->Identifier,
-            name: token.value
-        };
+        ret->type = Syntax->Identifier;
+        ret->c.identifier = new IdentifierT;
+        ret->c.identifier->name = convertStr(token.value);
+        return ret;
     }
 
-    function parseObjectProperty() {
-        let token, key, id, param;
+    function ObjectPropertiesT* parseObjectProperty() {
+        let token;
+        let ObjectPropertiesT* prop;
+        let PatternListT* param;
+        let LiteralOrIdentifierT* id;
+
+        let LiteralOrIdentifierT* key;
 
         token = lookahead();
 
@@ -1485,12 +2233,11 @@ struct SyntaxT {
                 key = parseObjectPropertyKey();
                 expect('(');
                 expect(')');
-                return {
-                    type: Syntax->Property,
-                    key: key,
-                    value: parsePropertyFunction([]),
-                    kind: 'get'
-                };
+                prop = new ObjectPropertiesT;
+                prop->key = key;
+                prop->value = castPattern(parsePropertyFunction(new PatternListT), Syntax->FunctionExpression);
+                prop->kind = OBJECT_KIND_GET;
+                return prop;
             } else if (token.value === 'set' && !match(':')) {
                 key = parseObjectPropertyKey();
                 expect('(');
@@ -1498,51 +2245,54 @@ struct SyntaxT {
                 if (token.type !== Token.Identifier) {
                     throwUnexpected(lex());
                 }
-                param = [ parseVariableIdentifier() ];
+                
+                param->elem = castPattern(parseVariableIdentifier(), Syntax->Identifier);
                 expect(')');
-                return {
-                    type: Syntax->Property,
-                    key: key,
-                    value: parsePropertyFunction(param, token),
-                    kind: 'set'
-                };
+                prop = new ObjectPropertiesT;
+                prop->key = key;
+                prop->value = castPattern(castExpression(parsePropertyFunction(param, token), Syntax->FunctionExpression), Syntax->Expression);
+                prop->kind = OBJECT_KIND_SET;
+                return prop;
             } else {
                 expect(':');
-                return {
-                    type: Syntax->Property,
-                    key: id,
-                    value: parseAssignmentExpression(),
-                    kind: 'init'
-                };
+                prop = new ObjectPropertiesT;
+                prop->key = id;
+                prop->value = castPattern(parseAssignmentExpression(), Syntax->Expression);
+                prop->kind = OBJECT_KIND_INIT;
+                return prop;
             }
         } else if (token.type === Token.EOF || token.type === Token.Punctuator) {
             throwUnexpected(token);
         } else {
             key = parseObjectPropertyKey();
             expect(':');
-            return {
-                type: Syntax->Property,
-                key: key,
-                value: parseAssignmentExpression(),
-                kind: 'init'
-            };
+            prop = new ObjectPropertiesT;
+            prop->key = key;
+            prop->value = castPattern(parseAssignmentExpression(), Syntax->Expression);
+            prop->kind = OBJECT_KIND_INIT;
+            return prop;
         }
     }
 
-    function parseObjectInitialiser() {
-        let token, properties = [], property, name, kind, map = {};
+    function ObjectExpressionT* parseObjectInitialiser() {
+        let token, name, kind, map = {};
+
+        let ObjectExpressionT* expr = new ObjectExpressionT;
+        expr->properties = new ObjectPropertiesListT;
+        let ObjectPropertiesListT* curProp = expr->properties;
+        let ObjectPropertiesT* property;
 
         expect('{');
 
         while (!match('}')) {
             property = parseObjectProperty();
 
-            if (property.key.type === Syntax->Identifier) {
-                name = property.key.name;
+            if (property->key->type === Syntax->Identifier) {
+                name = property->key->c.identifier->name;
             } else {
-                name = String(property.key.value);
+                name = readStr(property->key->c.literal->value);
             }
-            kind = (property.kind === 'init') ? PropertyKind.Data : (property.kind === 'get') ? PropertyKind.Get : PropertyKind.Set;
+            kind = (property->kind === OBJECT_KIND_INIT) ? PropertyKind.Data : (property->kind === OBJECT_KIND_GET) ? PropertyKind.Get : PropertyKind.Set;
             if (Object.prototype.hasOwnProperty.call(map, name)) {
                 if (map[name] === PropertyKind.Data) {
                     if (strict && kind === PropertyKind.Data) {
@@ -1562,7 +2312,9 @@ struct SyntaxT {
                 map[name] = kind;
             }
 
-            properties.push(property);
+            curProp->elem = property;
+            curProp->next = new ObjectPropertiesListT;
+            curProp = curProp->next;
 
             if (!match('}')) {
                 expect(',');
@@ -1571,64 +2323,60 @@ struct SyntaxT {
 
         expect('}');
 
-        return {
-            type: Syntax->ObjectExpression,
-            properties: properties
-        };
+        return expr;
     }
 
     // 11.1 Primary Expressions
 
-    function parsePrimaryExpression() {
-        let expr,
-            token = lookahead(),
+    function ExpressionT* parsePrimaryExpression() {
+        let ExpressionT* expr = new ExpressionT;
+        let token = lookahead(),
             type = token.type;
 
         if (type === Token.Identifier) {
-            return {
-                type: Syntax->Identifier,
-                name: lex().value
-            };
+            let IdentifierT* identifier = new IdentifierT;
+            identifier->name = convertStr(lex().value);
+            expr->type = Syntax->Identifier;
+            expr->c.identifier = identifier;
+            return expr;
         }
 
         if (type === Token.StringLiteral || type === Token.NumericLiteral) {
             if (strict && token.octal) {
                 throwErrorTolerant(token, Messages.StrictOctalLiteral);
             }
-            return createLiteral(lex());
+            return castExpression(createLiteral(lex()), Syntax->Literal);
         }
 
         if (type === Token.Keyword) {
             if (matchKeyword('this')) {
                 lex();
-                return {
-                    type: Syntax->ThisExpression
-                };
+                return new ThisExpressionT;
             }
 
             if (matchKeyword('function')) {
-                return parseFunctionExpression();
+                return castExpression(parseFunctionExpression(), Syntax->FunctionExpression);
             }
         }
 
         if (type === Token.BooleanLiteral) {
             lex();
             token.value = (token.value === 'true');
-            return createLiteral(token);
+            return castExpression(createLiteral(token), Syntax->Literal);
         }
 
         if (type === Token.NullLiteral) {
             lex();
             token.value = null;
-            return createLiteral(token);
+            return castExpression(createLiteral(token), Syntax->Literal);
         }
 
         if (match('[')) {
-            return parseArrayInitialiser();
+            return castExpression(parseArrayInitialiser(), Syntax->ArrayExpression);
         }
 
         if (match('{')) {
-            return parseObjectInitialiser();
+            return castExpression(parseObjectInitialiser(), Syntax->ObjectExpression);
         }
 
         if (match('(')) {
@@ -1639,22 +2387,23 @@ struct SyntaxT {
         }
 
         if (match('/') || match('/=')) {
-            return createLiteral(scanRegExp());
+            return castExpression(createLiteral(scanRegExp()), Syntax->Literal);
         }
 
-        return throwUnexpected(lex());
+        throwUnexpected(lex());
     }
 
     // 11.2 Left-Hand-Side Expressions
 
-    function parseArguments() {
-        let args = [];
+    function ExpressionListT* parseArguments() {
+        let ExpressionListT* args = new ExpressionListT;
+        let ExpressionListT* cur = args;
 
         expect('(');
 
         if (!match(')')) {
             while (index < length) {
-                args.push(parseAssignmentExpression());
+                cur->elem = parseAssignmentExpression();
                 if (match(')')) {
                     break;
                 }
@@ -1667,83 +2416,74 @@ struct SyntaxT {
         return args;
     }
 
-    function parseNonComputedProperty() {
+    function IdentifierT* parseNonComputedProperty() {
         let token = lex();
 
         if (!isIdentifierName(token)) {
             throwUnexpected(token);
         }
 
-        return {
-            type: Syntax->Identifier,
-            name: token.value
-        };
+        let IdentifierT* identifier = new IdentifierT;
+        identifier->name = convertStr(token.value);
+        return identifier;
     }
 
-    function parseNonComputedMember(object) {
-        return {
-            type: Syntax->MemberExpression,
-            computed: false,
-            object: object,
-            property: parseNonComputedProperty()
-        };
+    function MemberExpressionT* parseNonComputedMember(ExpressionT* object) {
+        let MemberExpressionT* member = new MemberExpressionT;
+        member->computed = 0;
+        member->object = object;
+        member->propertyType = Syntax->Identifier;
+        member->property.identifier = parseNonComputedProperty();
+        return member;
     }
 
-    function parseComputedMember(object) {
-        let property, expr;
+    function MemberExpressionT* parseComputedMember(ExpressionT* object) {
+        let MemberExpressionT* expr
 
         expect('[');
-        property = parseExpression();
-        expr = {
-            type: Syntax->MemberExpression,
-            computed: true,
-            object: object,
-            property: property
-        };
+        expr = new MemberExpressionT;
+        expr->computed = 1;
+        expr->object = object;
+        expr->propertyType = Syntax->Expression;
+        expr->property.expression = parseExpression();
         expect(']');
         return expr;
     }
 
-    function parseCallMember(object) {
-        return {
-            type: Syntax->CallExpression,
-            callee: object,
-            'arguments': parseArguments()
-        };
-    }
-
-    function parseNewExpression() {
-        let expr;
-
-        expectKeyword('new');
-
-        expr = {
-            type: Syntax->NewExpression,
-            callee: parseLeftHandSideExpression(),
-            'arguments': []
-        };
-
-        if (match('(')) {
-            expr['arguments'] = parseArguments();
-        }
-
+    function CallExpressionT* parseCallMember(ExpressionT* object) {
+        let CallExpressionT* expr = new CallExpressionT;
+        expr->callee = object;
+        expr->arguments = parseArguments();
         return expr;
     }
 
-    function parseLeftHandSideExpressionAllowCall() {
-        let useNew, expr;
+    function ExpressionT* parseNewExpression() {
+        expectKeyword('new');
 
-        useNew = matchKeyword('new');
+        let NewExpressionT* newExpr = new NewExpressionT;
+        newExpr->callee = parseLeftHandSideExpression();
+
+        if (match('(')) {
+            newExpr->arguments = parseArguments();
+        }
+
+        return castExpression(newExpr, Syntax->NewExpression);
+    }
+
+    function ExpressionT* parseLeftHandSideExpressionAllowCall() {
+        let ExpressionT* expr;
+
+        let useNew = matchKeyword('new');
         expr = useNew ? parseNewExpression() : parsePrimaryExpression();
 
         while (index < length) {
             if (match('.')) {
                 lex();
-                expr = parseNonComputedMember(expr);
+                expr = castExpression(parseNonComputedMember(expr), Syntax->MemberExpression);
             } else if (match('[')) {
-                expr = parseComputedMember(expr);
+                expr = castExpression(parseComputedMember(expr), Syntax->MemberExpression);
             } else if (match('(')) {
-                expr = parseCallMember(expr);
+                expr = castExpression(parseCallMember(expr), Syntax->CallExpression);
             } else {
                 break;
             }
@@ -1752,8 +2492,9 @@ struct SyntaxT {
         return expr;
     }
 
-    function parseLeftHandSideExpression() {
-        let useNew, expr;
+    function ExpressionT* parseLeftHandSideExpression() {
+        let useNew;
+        let ExpressionT* expr;
 
         useNew = matchKeyword('new');
         expr = useNew ? parseNewExpression() : parsePrimaryExpression();
@@ -1761,9 +2502,9 @@ struct SyntaxT {
         while (index < length) {
             if (match('.')) {
                 lex();
-                expr = parseNonComputedMember(expr);
+                expr = castExpression(parseNonComputedMember(expr), Syntax->MemberExpression);
             } else if (match('[')) {
-                expr = parseComputedMember(expr);
+                expr = castExpression(parseComputedMember(expr), Syntax->MemberExpression);
             } else {
                 break;
             }
@@ -1774,12 +2515,13 @@ struct SyntaxT {
 
     // 11.3 Postfix Expressions
 
-    function parsePostfixExpression() {
-        let expr = parseLeftHandSideExpressionAllowCall();
+    function ExpressionT* parsePostfixExpression() {
+        let ExpressionT* expr;
+        expr = parseLeftHandSideExpressionAllowCall();
 
         if ((match('++') || match('--')) && !peekLineTerminator()) {
             // 11.3.1, 11.3.2
-            if (strict && expr.type === Syntax->Identifier && isRestrictedWord(expr.name)) {
+            if (strict && expr->type === Syntax->Identifier && isRestrictedWord(expr->c.identifier->name)) {
                 throwError({}, Messages.StrictLHSPostfix);
             }
 
@@ -1787,12 +2529,13 @@ struct SyntaxT {
                 throwError({}, Messages.InvalidLHSInAssignment);
             }
 
-            expr = {
-                type: Syntax->UpdateExpression,
-                operator: lex().value,
-                argument: expr,
-                prefix: false
-            };
+            let UpdateExpressionT* newExpr = new UpdateExpressionT;
+            newExpr->operator = convertOperator(lex().value);
+            newExpr->argument = expr;
+            newExpr->prefix = 0;
+            expr = new ExpressionT;
+            expr->type = Syntax->UpdateExpression;
+            expr->c.update = newExpr;
         }
 
         return expr;
@@ -1800,14 +2543,15 @@ struct SyntaxT {
 
     // 11.4 Unary Operators
 
-    function parseUnaryExpression() {
-        let token, expr;
+    function ExpressionT* parseUnaryExpression() {
+        let token;
+        let ExpressionT* expr;
 
         if (match('++') || match('--')) {
             token = lex();
             expr = parseUnaryExpression();
             // 11.4.4, 11.4.5
-            if (strict && expr.type === Syntax->Identifier && isRestrictedWord(expr.name)) {
+            if (strict && expr->type === Syntax->Identifier && isRestrictedWord(expr->c.identifier->name)) {
                 throwError({}, Messages.StrictLHSPrefix);
             }
 
@@ -1815,31 +2559,34 @@ struct SyntaxT {
                 throwError({}, Messages.InvalidLHSInAssignment);
             }
 
-            expr = {
-                type: Syntax->UpdateExpression,
-                operator: token.value,
-                argument: expr,
-                prefix: true
-            };
+            let UpdateExpressionT* update = new UpdateExpressionT;
+            update->operator = convertOperator(token.value);
+            update->argument = expr;
+            update->prefix = 1;
+            expr = new ExpressionT;
+            expr->type = Syntax->UpdateExpression;
+            expr->c.update = update;
             return expr;
         }
 
         if (match('+') || match('-') || match('~') || match('!')) {
-            expr = {
-                type: Syntax->UnaryExpression,
-                operator: lex().value,
-                argument: parseUnaryExpression()
-            };
+            let UnaryExpressionT* unary = new UnaryExpressionT;
+            unary->operator = convertOperator(lex().value);
+            unary->argument = parseUnaryExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->UnaryExpression;
+            expr->c.unary = unary;
             return expr;
         }
 
         if (matchKeyword('delete') || matchKeyword('void') || matchKeyword('typeof')) {
-            expr = {
-                type: Syntax->UnaryExpression,
-                operator: lex().value,
-                argument: parseUnaryExpression()
-            };
-            if (strict && expr.operator === 'delete' && expr.argument.type === Syntax->Identifier) {
+            let UnaryExpressionT* unary = new UnaryExpressionT;
+            unary->operator = convertOperator(lex().value);
+            unary->argument = parseUnaryExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->UnaryExpression;
+            expr->c.unary = unary;
+            if (strict && unary->operator === 'delete' && unary->argument->type === Syntax->Identifier) {
                 throwErrorTolerant({}, Messages.StrictDelete);
             }
             return expr;
@@ -1850,16 +2597,18 @@ struct SyntaxT {
 
     // 11.5 Multiplicative Operators
 
-    function parseMultiplicativeExpression() {
-        let expr = parseUnaryExpression();
+    function ExpressionT* parseMultiplicativeExpression() {
+        let ExpressionT* expr;
+        expr = parseUnaryExpression();
 
         while (match('*') || match('/') || match('%')) {
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseUnaryExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator(lex().value);
+            binary->left = expr;
+            binary->right = parseUnaryExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
@@ -1867,16 +2616,18 @@ struct SyntaxT {
 
     // 11.6 Additive Operators
 
-    function parseAdditiveExpression() {
-        let expr = parseMultiplicativeExpression();
+    function ExpressionT* parseAdditiveExpression() {
+        let ExpressionT* expr;
+        expr = parseMultiplicativeExpression();
 
         while (match('+') || match('-')) {
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseMultiplicativeExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator(lex().value);
+            binary->left = expr;
+            binary->right = parseMultiplicativeExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
@@ -1884,24 +2635,27 @@ struct SyntaxT {
 
     // 11.7 Bitwise Shift Operators
 
-    function parseShiftExpression() {
-        let expr = parseAdditiveExpression();
+    function ExpressionT* parseShiftExpression() {
+        let ExpressionT* expr;
+        expr = parseAdditiveExpression();
 
         while (match('<<') || match('>>') || match('>>>')) {
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseAdditiveExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator(lex().value);
+            binary->left = expr;
+            binary->right = parseAdditiveExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
     }
     // 11.8 Relational Operators
 
-    function parseRelationalExpression() {
-        let expr, previousAllowIn;
+    function ExpressionT* parseRelationalExpression() {
+        let previousAllowIn;
+        let ExpressionT* expr;
 
         previousAllowIn = state.allowIn;
         state.allowIn = true;
@@ -1909,28 +2663,31 @@ struct SyntaxT {
         state.allowIn = previousAllowIn;
 
         if (match('<') || match('>') || match('<=') || match('>=')) {
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseRelationalExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator(lex().value);
+            binary->left = expr;
+            binary->right = parseRelationalExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         } else if (state.allowIn && matchKeyword('in')) {
             lex();
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: 'in',
-                left: expr,
-                right: parseRelationalExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator('in');
+            binary->left = expr;
+            binary->right = parseRelationalExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         } else if (matchKeyword('instanceof')) {
             lex();
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: 'instanceof',
-                left: expr,
-                right: parseRelationalExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator('instanceof');
+            binary->left = expr;
+            binary->right = parseRelationalExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
@@ -1938,16 +2695,18 @@ struct SyntaxT {
 
     // 11.9 Equality Operators
 
-    function parseEqualityExpression() {
-        let expr = parseRelationalExpression();
+    function ExpressionT* parseEqualityExpression() {
+        let ExpressionT* expr;
+        expr = parseRelationalExpression();
 
         while (match('==') || match('!=') || match('===') || match('!==')) {
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseRelationalExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator(lex().value);
+            binary->left = expr;
+            binary->right = parseRelationalExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
@@ -1955,49 +2714,55 @@ struct SyntaxT {
 
     // 11.10 Binary Bitwise Operators
 
-    function parseBitwiseANDExpression() {
-        let expr = parseEqualityExpression();
+    function ExpressionT* parseBitwiseANDExpression() {
+        let ExpressionT* expr;
+        expr = parseEqualityExpression();
 
         while (match('&')) {
             lex();
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: '&',
-                left: expr,
-                right: parseEqualityExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator('&');
+            binary->left = expr;
+            binary->right = parseEqualityExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
     }
 
-    function parseBitwiseXORExpression() {
-        let expr = parseBitwiseANDExpression();
+    function ExpressionT* parseBitwiseXORExpression() {
+        let ExpressionT* expr;
+        expr = parseBitwiseANDExpression();
 
         while (match('^')) {
             lex();
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: '^',
-                left: expr,
-                right: parseBitwiseANDExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator('^');
+            binary->left = expr;
+            binary->right = parseBitwiseANDExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
     }
 
-    function parseBitwiseORExpression() {
-        let expr = parseBitwiseXORExpression();
+    function ExpressionT* parseBitwiseORExpression() {
+        let ExpressionT* expr;
+        expr = parseBitwiseXORExpression();
 
         while (match('|')) {
             lex();
-            expr = {
-                type: Syntax->BinaryExpression,
-                operator: '|',
-                left: expr,
-                right: parseBitwiseXORExpression()
-            };
+            let BinaryExpressionT* binary = new BinaryExpressionT;
+            binary->operator = convertOperator('|');
+            binary->left = expr;
+            binary->right = parseBitwiseXORExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->BinaryExpression;
+            expr->c.binary = binary;
         }
 
         return expr;
@@ -2005,33 +2770,37 @@ struct SyntaxT {
 
     // 11.11 Binary Logical Operators
 
-    function parseLogicalANDExpression() {
-        let expr = parseBitwiseORExpression();
+    function ExpressionT* parseLogicalANDExpression() {
+        let ExpressionT* expr;
+        expr = parseBitwiseORExpression();
 
         while (match('&&')) {
             lex();
-            expr = {
-                type: Syntax->LogicalExpression,
-                operator: '&&',
-                left: expr,
-                right: parseBitwiseORExpression()
-            };
+            let LogicalExpressionT* logical = new LogicalExpressionT;
+            logical->operator = convertOperator('&&');
+            logical->left = expr;
+            logical->right = parseBitwiseORExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->LogicalExpression;
+            expr->c.logical = logical;
         }
 
         return expr;
     }
 
-    function parseLogicalORExpression() {
-        let expr = parseLogicalANDExpression();
+    function ExpressionT* parseLogicalORExpression() {
+        let ExpressionT* expr;
+        expr = parseLogicalANDExpression();
 
         while (match('||')) {
             lex();
-            expr = {
-                type: Syntax->LogicalExpression,
-                operator: '||',
-                left: expr,
-                right: parseLogicalANDExpression()
-            };
+            let LogicalExpressionT* logical = new LogicalExpressionT;
+            logical->operator = convertOperator('||');
+            logical->left = expr;
+            logical->right = parseLogicalANDExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->LogicalExpression;
+            expr->c.logical = logical;
         }
 
         return expr;
@@ -2039,9 +2808,10 @@ struct SyntaxT {
 
     // 11.12 Conditional Operator
 
-    function parseConditionalExpression() {
-        let expr, previousAllowIn, consequent;
+    function ExpressionT* parseConditionalExpression() {
+        let previousAllowIn;
 
+        let ExpressionT *expr, *consequent;
         expr = parseLogicalORExpression();
 
         if (match('?')) {
@@ -2052,12 +2822,13 @@ struct SyntaxT {
             state.allowIn = previousAllowIn;
             expect(':');
 
-            expr = {
-                type: Syntax->ConditionalExpression,
-                test: expr,
-                consequent: consequent,
-                alternate: parseAssignmentExpression()
-            };
+            let ConditionalExpressionT* conditional = new ConditionalExpressionT;
+            conditional->test = expr;
+            conditional->consequent = consequent;
+            conditional->alternate = parseAssignmentExpression();
+            expr = new ExpressionT;
+            expr->type = Syntax->ConditionalExpression;
+            expr->c.conditional = conditional;
         }
 
         return expr;
@@ -2065,9 +2836,8 @@ struct SyntaxT {
 
     // 11.13 Assignment Operators
 
-    function parseAssignmentExpression() {
-        let expr;
-
+    function ExpressionT* parseAssignmentExpression() {
+        let ExpressionT* expr;
         expr = parseConditionalExpression();
 
         if (matchAssign()) {
@@ -2077,16 +2847,15 @@ struct SyntaxT {
             }
 
             // 11.13.1
-            if (strict && expr.type === Syntax->Identifier && isRestrictedWord(expr.name)) {
+            if (strict && expr->type === Syntax->Identifier && isRestrictedWord(expr->c.identifier->name)) {
                 throwError({}, Messages.StrictLHSAssignment);
             }
 
-            expr = {
-                type: Syntax->AssignmentExpression,
-                operator: lex().value,
-                left: expr,
-                right: parseAssignmentExpression()
-            };
+            let AssignmentExpressionT* assignment = new AssignmentExpressionT;
+            assignment->operator = convertOperator(lex().value);
+            assignment->left = expr;
+            assignment->right = parseAssignmentExpression();
+            expr = castExpression(assignment, Syntax->AssignmentExpression);
         }
 
         return expr;
@@ -2094,49 +2863,58 @@ struct SyntaxT {
 
     // 11.14 Comma Operator
 
-    function parseExpression() {
-        let expr = parseAssignmentExpression();
+    function ExpressionT* parseExpression() {
+        let ExpressionT* expr;
+        expr = parseAssignmentExpression();
 
         if (match(',')) {
-            expr = {
-                type: Syntax->SequenceExpression,
-                expressions: [ expr ]
-            };
+            let SequenceExpressionT* sequence = new SequenceExpressionT;
+            sequence->expressions = new ExpressionListT;
+            let ExpressionListT* cur = sequence->expressions;
+            cur->elem = expr;
 
             while (index < length) {
                 if (!match(',')) {
                     break;
                 }
                 lex();
-                expr.expressions.push(parseAssignmentExpression());
+                cur->next = new ExpressionListT;
+                cur = cur->next;
+                cur->elem = castExpression(parseAssignmentExpression(), Syntax->AssignmentExpression);
             }
 
+            expr = new ExpressionT;
+            expr->type = Syntax->SequenceExpression;
+            expr->c.sequence = sequence;
         }
         return expr;
     }
 
     // 12.1 Block
 
-    function parseStatementList() {
-        let list = [],
-            statement;
+    function StatementListT* parseStatementList() {
+        let StatementListT* list = new StatementListT;
+        let StatementListT* cur = list;
+        let StatementT* statement;
 
         while (index < length) {
             if (match('}')) {
                 break;
             }
             statement = parseSourceElement();
-            if (typeof statement === 'undefined') {
+            if (statement === null) {
                 break;
             }
-            list.push(statement);
+            cur->elem = statement;
+            cur->next = new StatementListT;
+            cur = cur->next;
         }
 
         return list;
     }
 
-    function parseBlock() {
-        let block;
+    function BlockStatementT* parseBlock() {
+        let StatementListT* block;
 
         expect('{');
 
@@ -2144,56 +2922,57 @@ struct SyntaxT {
 
         expect('}');
 
-        return {
-            type: Syntax->BlockStatement,
-            body: block
-        };
+        let BlockStatementT* blockSt = new BlockStatementT;
+        blockSt->body = block;
+        return blockSt;
     }
 
     // 12.2 Variable Statement
 
-    function parseVariableIdentifier() {
+    function IdentifierT* parseVariableIdentifier() {
         let token = lex();
 
         if (token.type !== Token.Identifier) {
             throwUnexpected(token);
         }
 
-        return {
-            type: Syntax->Identifier,
-            name: token.value
-        };
+        let IdentifierT* ident = new IdentifierT;
+        ident->name = convertStr(token.value);
+        return ident;
     }
 
-    function parseVariableDeclaration(kind) {
-        let id = parseVariableIdentifier(),
-            init = null;
+    function VariableDeclaratorT* parseVariableDeclaration(u8 kind) {
+        let PatternT* init;
+        let IdentifierT* id;
+        id = parseVariableIdentifier();
 
         // 12.2.1
-        if (strict && isRestrictedWord(id.name)) {
+        if (strict && isRestrictedWord(id->name)) {
             throwErrorTolerant({}, Messages.StrictVarName);
         }
 
         if (kind === 'const') {
             expect('=');
-            init = parseAssignmentExpression();
+            init = castPattern(parseAssignmentExpression(), Syntax->Expression);
         } else if (match('=')) {
             lex();
-            init = parseAssignmentExpression();
+            init = castPattern(parseAssignmentExpression(), Syntax->Expression);
         }
 
-        return {
-            type: Syntax->VariableDeclarator,
-            id: id,
-            init: init
-        };
+        let VariableDeclaratorT* decl = new VariableDeclaratorT;
+        decl->id = castPattern(id, Syntax->Identifier);
+        decl->init = castExpression(init, Syntax->Identifier);
+        return decl;
     }
 
-    function parseVariableDeclarationList(kind) {
-        let list = [];
+    function VariableDeclaratorListT* parseVariableDeclarationList(u8 kind) {
+        let VariableDeclaratorListT* list = new VariableDeclaratorListT;
+        let VariableDeclaratorListT* cur = list;
 
         while (index < length) {
-            list.push(parseVariableDeclaration(kind));
+            cur->elem = parseVariableDeclaration(kind);
+            cur->next = new VariableDeclaratorListT;
+            cur = cur->next;
             if (!match(',')) {
                 break;
             }
@@ -2203,45 +2982,53 @@ struct SyntaxT {
         return list;
     }
 
-    function parseVariableStatement() {
-        let declarations;
+    function VariableDeclarationT* parseVariableStatement() {
+        let VariableDeclaratorListT* declarations;
 
         expectKeyword('var');
 
-        declarations = parseVariableDeclarationList();
+        declarations = parseVariableDeclarationList(VAR_KIND_VAR);
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->VariableDeclaration,
-            declarations: declarations,
-            kind: 'var'
-        };
+        let VariableDeclarationT* decl = new VariableDeclarationT;
+        decl->declarations = declarations;
+        decl->kind = VAR_KIND_VAR;
+        return decl;
     }
 
     // kind may be `const` or `let`
     // Both are experimental and not in the specification yet.
     // see http://wiki.ecmascript.org/doku.php?id=harmony:const
     // and http://wiki.ecmascript.org/doku.php?id=harmony:let
-    function parseConstLetDeclaration(kind) {
-        let declarations;
+    function VariableDeclarationT* parseConstLetDeclaration(u8 kind) {
+        let VariableDeclaratorListT* declarations;
 
-        expectKeyword(kind);
+        switch (kind) {
+        case VAR_KIND_VAR:
+            expectKeyword('var');
+            break;
+        case VAR_KIND_LET:
+            expectKeyword('var');
+            break;
+        case VAR_KIND_CONST:
+            expectKeyword('var');
+            break;
+        }
 
         declarations = parseVariableDeclarationList(kind);
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->VariableDeclaration,
-            declarations: declarations,
-            kind: kind
-        };
+        let VariableDeclarationT* decl = new VariableDeclarationT;
+        decl->declarations = declarations;
+        decl->kind = kind;
+        return decl;
     }
 
     // 12.3 Empty Statement
 
-    function parseEmptyStatement() {
+    function EmptyStatementT* parseEmptyStatement() {
         expect(';');
 
         let EmptyStatementT* s = new EmptyStatementT;
@@ -2251,21 +3038,23 @@ struct SyntaxT {
 
     // 12.4 Expression Statement
 
-    function parseExpressionStatement() {
-        let expr = parseExpression();
+    function ExpressionStatementT* parseExpressionStatement() {
+        let ExpressionT* expr;
+        expr = parseExpression();
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->ExpressionStatement,
-            expression: expr
-        };
+        let ExpressionStatementT* s = new ExpressionStatementT;
+        s->type = Syntax->ExpressionStatement;
+        s->expression = expr;
+        return s;
     }
 
     // 12.5 If statement
 
-    function parseIfStatement() {
-        let test, consequent, alternate;
+    function IfStatementT* parseIfStatement() {
+        let ExpressionT* test;
+        let StatementT *consequent, *alternate;
 
         expectKeyword('if');
 
@@ -2284,18 +3073,19 @@ struct SyntaxT {
             alternate = null;
         }
 
-        return {
-            type: Syntax->IfStatement,
-            test: test,
-            consequent: consequent,
-            alternate: alternate
-        };
+        let IfStatementT* st = new IfStatementT;
+        st->test = test;
+        st->consequent = consequent;
+        st->alternate = alternate;
+        return st;
     }
 
     // 12.6 Iteration Statements
 
-    function parseDoWhileStatement() {
-        let body, test, oldInIteration;
+    function DoWhileStatementT* parseDoWhileStatement() {
+        let oldInIteration;
+        let StatementT* body;
+        let ExpressionT* test;
 
         expectKeyword('do');
 
@@ -2318,15 +3108,16 @@ struct SyntaxT {
             lex();
         }
 
-        return {
-            type: Syntax->DoWhileStatement,
-            body: body,
-            test: test
-        };
+        let DoWhileStatementT* st = new DoWhileStatementT;
+        st->body = body;
+        st->test = test;
+        return st;
     }
 
-    function parseWhileStatement() {
-        let test, body, oldInIteration;
+    function WhileStatementT* parseWhileStatement() {
+        let oldInIteration;
+        let ExpressionT* test;
+        let StatementT* body;
 
         expectKeyword('while');
 
@@ -2343,27 +3134,27 @@ struct SyntaxT {
 
         state.inIteration = oldInIteration;
 
-        return {
-            type: Syntax->WhileStatement,
-            test: test,
-            body: body
-        };
+        let WhileStatementT* st = new WhileStatementT;
+        st->test = test;
+        st->body = body;
+        return st;
     }
 
-    function parseForVariableDeclaration() {
+    function VariableDeclarationT* parseForVariableDeclaration() {
         let token = lex();
 
-        return {
-            type: Syntax->VariableDeclaration,
-            declarations: parseVariableDeclarationList(),
-            kind: token.value
-        };
+        let VariableDeclarationT* decl = new VariableDeclarationT;
+        decl->declarations = parseVariableDeclarationList(VAR_KIND_VAR); // TODO - check kind
+        decl->kind = convertVarKind(token.value);
+        return decl;
     }
 
-    function parseForStatement() {
-        let init, test, update, left, right, body, oldInIteration;
-
-        init = test = update = null;
+    function StatementT* parseForStatement() {
+        let oldInIteration;
+        let ForInitU *init, *left;
+        let ExpressionT *test, *update, *right;
+        let StatementT* body;
+        let u8 initType;
 
         expectKeyword('for');
 
@@ -2374,39 +3165,43 @@ struct SyntaxT {
         } else {
             if (matchKeyword('var') || matchKeyword('let')) {
                 state.allowIn = false;
-                init = parseForVariableDeclaration();
+                initType = Syntax->VariableDeclaration;
+                init = new ForInitU;
+                init->variableDeclaration = parseForVariableDeclaration();
                 state.allowIn = true;
 
-                if (init.declarations.length === 1 && matchKeyword('in')) {
+                if (varDeclListLength(init->variableDeclaration->declarations) === 1 && matchKeyword('in')) {
                     lex();
                     left = init;
                     right = parseExpression();
-                    init = null;
+                    init->variableDeclaration = null;
                 }
             } else {
                 state.allowIn = false;
-                init = parseExpression();
+                initType = Syntax->Expression;
+                init = new ForInitU;
+                init->expression = parseExpression();
                 state.allowIn = true;
 
                 if (matchKeyword('in')) {
                     // LeftHandSideExpression
-                    if (!isLeftHandSide(init)) {
+                    if (!isLeftHandSide(init->expression)) {
                         throwError({}, Messages.InvalidLHSInForIn);
                     }
 
                     lex();
                     left = init;
                     right = parseExpression();
-                    init = null;
+                    init->expression = null;
                 }
             }
 
-            if (typeof left === 'undefined') {
+            if (left === null) {
                 expect(';');
             }
         }
 
-        if (typeof left === 'undefined') {
+        if (left === null) {
 
             if (!match(';')) {
                 test = parseExpression();
@@ -2427,29 +3222,29 @@ struct SyntaxT {
 
         state.inIteration = oldInIteration;
 
-        if (typeof left === 'undefined') {
-            return {
-                type: Syntax->ForStatement,
-                init: init,
-                test: test,
-                update: update,
-                body: body
-            };
+        if (left === null) {
+            let ForStatementT* st = new ForStatementT;
+            st->init = init;
+            st->test = test;
+            st->update = update;
+            st->body = body;
+            return castStatement(st, Syntax->ForStatement);
         }
 
-        return {
-            type: Syntax->ForInStatement,
-            left: left,
-            right: right,
-            body: body,
-            each: false
-        };
+        let ForInStatementT* st = new ForInStatementT;
+        st->left = left;
+        st->right = right;
+        st->body = body;
+        st->each = 0;
+        return castStatement(st, Syntax->ForInStatement);
     }
 
     // 12.7 The continue statement
 
-    function parseContinueStatement() {
-        let token, label = null;
+    function ContinueStatementT* parseContinueStatement() {
+        let token;
+        let IdentifierT* label;
+        let ContinueStatementT* st;
 
         expectKeyword('continue');
 
@@ -2461,10 +3256,7 @@ struct SyntaxT {
                 throwError({}, Messages.IllegalContinue);
             }
 
-            return {
-                type: Syntax->ContinueStatement,
-                label: null
-            };
+            return new ContinueStatementT;
         }
 
         if (peekLineTerminator()) {
@@ -2472,18 +3264,15 @@ struct SyntaxT {
                 throwError({}, Messages.IllegalContinue);
             }
 
-            return {
-                type: Syntax->ContinueStatement,
-                label: null
-            };
+            return new ContinueStatementT;
         }
 
         token = lookahead();
         if (token.type === Token.Identifier) {
             label = parseVariableIdentifier();
 
-            if (!Object.prototype.hasOwnProperty.call(state.labelSet, label.name)) {
-                throwError({}, Messages.UnknownLabel, label.name);
+            if (!Object.prototype.hasOwnProperty.call(state.labelSet, readStr(label->name))) {
+                throwError({}, Messages.UnknownLabel, readStr(label->name));
             }
         }
 
@@ -2493,16 +3282,17 @@ struct SyntaxT {
             throwError({}, Messages.IllegalContinue);
         }
 
-        return {
-            type: Syntax->ContinueStatement,
-            label: label
-        };
+        st = new ContinueStatementT;
+        st->label = label;
+        return st;
     }
 
     // 12.8 The break statement
 
-    function parseBreakStatement() {
-        let token, label = null;
+    function BreakStatementT* parseBreakStatement() {
+        let token;
+        let BreakStatementT* st = new BreakStatementT;
+        let IdentifierT* label;
 
         expectKeyword('break');
 
@@ -2514,10 +3304,7 @@ struct SyntaxT {
                 throwError({}, Messages.IllegalBreak);
             }
 
-            return {
-                type: Syntax->BreakStatement,
-                label: null
-            };
+            return st;
         }
 
         if (peekLineTerminator()) {
@@ -2525,18 +3312,15 @@ struct SyntaxT {
                 throwError({}, Messages.IllegalBreak);
             }
 
-            return {
-                type: Syntax->BreakStatement,
-                label: null
-            };
+            return st;
         }
 
         token = lookahead();
         if (token.type === Token.Identifier) {
             label = parseVariableIdentifier();
 
-            if (!Object.prototype.hasOwnProperty.call(state.labelSet, label.name)) {
-                throwError({}, Messages.UnknownLabel, label.name);
+            if (!Object.prototype.hasOwnProperty.call(state.labelSet, readStr(label->name))) {
+                throwError({}, Messages.UnknownLabel, readStr(label->name));
             }
         }
 
@@ -2546,16 +3330,16 @@ struct SyntaxT {
             throwError({}, Messages.IllegalBreak);
         }
 
-        return {
-            type: Syntax->BreakStatement,
-            label: label
-        };
+        st->label = label;
+        return st;
     }
 
     // 12.9 The return statement
 
-    function parseReturnStatement() {
-        let token, argument = null;
+    function ReturnStatementT* parseReturnStatement() {
+        let token;
+        let ReturnStatementT* st;
+        let ExpressionT* argument;
 
         expectKeyword('return');
 
@@ -2568,18 +3352,15 @@ struct SyntaxT {
             if (isIdentifierStart(source[index + 1])) {
                 argument = parseExpression();
                 consumeSemicolon();
-                return {
-                    type: Syntax->ReturnStatement,
-                    argument: argument
-                };
+                st = new ReturnStatementT;
+                st->argument = argument
+                return st;
             }
         }
 
         if (peekLineTerminator()) {
-            return {
-                type: Syntax->ReturnStatement,
-                argument: null
-            };
+            st = new ReturnStatementT;
+            return st;
         }
 
         if (!match(';')) {
@@ -2591,16 +3372,16 @@ struct SyntaxT {
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->ReturnStatement,
-            argument: argument
-        };
+        st = new ReturnStatementT;
+        st->argument = argument
+        return st;
     }
 
     // 12.10 The with statement
 
-    function parseWithStatement() {
-        let object, body;
+    function WithStatementT* parseWithStatement() {
+        let ExpressionT* object;
+        let StatementT* body;
 
         if (strict) {
             throwErrorTolerant({}, Messages.StrictModeWith);
@@ -2616,19 +3397,19 @@ struct SyntaxT {
 
         body = parseStatement();
 
-        return {
-            type: Syntax->WithStatement,
-            object: object,
-            body: body
-        };
+        let WithStatementT* st = new WithStatementT;
+        st->object = object;
+        st->body = body;
+        return st;
     }
 
     // 12.10 The swith statement
 
-    function parseSwitchCase() {
-        let test,
-            consequent = [],
-            statement;
+    function SwitchCaseT* parseSwitchCase() {
+        let ExpressionT* test;
+        let StatementListT* consequent = new StatementListT;
+        let StatementListT* cur = consequent;
+        let StatementT* statement;
 
         if (matchKeyword('default')) {
             lex();
@@ -2644,21 +3425,25 @@ struct SyntaxT {
                 break;
             }
             statement = parseStatement();
-            if (typeof statement === 'undefined') {
+            if (statement === null) {
                 break;
             }
-            consequent.push(statement);
+            cur->elem = statement;
+            cur->next = new StatementListT;
+            cur = cur->next;
         }
 
-        return {
-            type: Syntax->SwitchCase,
-            test: test,
-            consequent: consequent
-        };
+        let SwitchCaseT* s = new SwitchCaseT;
+        s->test = test;
+        s->consequent = consequent;
+        return s;
     }
 
-    function parseSwitchStatement() {
-        let discriminant, cases, oldInSwitch;
+    function SwitchStatementT* parseSwitchStatement() {
+        let oldInSwitch;
+        let SwitchStatementT* st;
+        let ExpressionT* discriminant;
+        let SwitchCaseListT* cases;
 
         expectKeyword('switch');
 
@@ -2672,13 +3457,13 @@ struct SyntaxT {
 
         if (match('}')) {
             lex();
-            return {
-                type: Syntax->SwitchStatement,
-                discriminant: discriminant
-            };
+            st = new SwitchStatementT;
+            st->discriminant = discriminant;
+            return st;
         }
 
-        cases = [];
+        cases = new SwitchCaseListT;
+        let SwitchCaseListT* cur = cases;
 
         oldInSwitch = state.inSwitch;
         state.inSwitch = true;
@@ -2687,24 +3472,25 @@ struct SyntaxT {
             if (match('}')) {
                 break;
             }
-            cases.push(parseSwitchCase());
+            cur->elem = parseSwitchCase();
+            cur->next = new SwitchCaseListT;
+            cur = cur->next;
         }
 
         state.inSwitch = oldInSwitch;
 
         expect('}');
 
-        return {
-            type: Syntax->SwitchStatement,
-            discriminant: discriminant,
-            cases: cases
-        };
+        st = new SwitchStatementT;
+        st->discriminant = discriminant;
+        st->cases = cases;
+        return st;
     }
 
     // 12.13 The throw statement
 
-    function parseThrowStatement() {
-        let argument;
+    function ThrowStatementT* parseThrowStatement() {
+        let ExpressionT* argument;
 
         expectKeyword('throw');
 
@@ -2716,46 +3502,48 @@ struct SyntaxT {
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->ThrowStatement,
-            argument: argument
-        };
+        let ThrowStatementT* st = new ThrowStatementT;
+        st->argument = argument;
+        return st;
     }
 
     // 12.14 The try statement
 
-    function parseCatchClause() {
-        let param;
+    function CatchClauseT* parseCatchClause() {
+        let PatternT* param;
 
         expectKeyword('catch');
 
         expect('(');
         if (!match(')')) {
-            param = parseExpression();
+            param = castPattern(parseExpression(), Syntax->Expression);
             // 12.14.1
-            if (strict && param.type === Syntax->Identifier && isRestrictedWord(param.name)) {
+            if (strict && param->type === Syntax->Identifier && isRestrictedWord(readStr(param->c.identifier->name))) {
                 throwErrorTolerant({}, Messages.StrictCatchVariable);
             }
         }
         expect(')');
 
-        return {
-            type: Syntax->CatchClause,
-            param: param,
-            guard: null,
-            body: parseBlock()
-        };
+        let CatchClauseT* clause = new CatchClauseT;
+        clause->param = param;
+        clause->body = parseBlock();
+        return clause;
     }
 
-    function parseTryStatement() {
-        let block, handlers = [], finalizer = null;
+    function TryStatementT* parseTryStatement() {
+        let BlockStatementT* block;
+        let CatchClauseListT* handlers = new CatchClauseListT;
+        let BlockStatementT* finalizer;
 
         expectKeyword('try');
 
         block = parseBlock();
 
+        let CatchClauseListT* cur = handlers;
         if (matchKeyword('catch')) {
-            handlers.push(parseCatchClause());
+            cur->elem = parseCatchClause();
+            cur->next = new CatchClauseListT;
+            cur = cur->next;
         }
 
         if (matchKeyword('finally')) {
@@ -2763,36 +3551,33 @@ struct SyntaxT {
             finalizer = parseBlock();
         }
 
-        if (handlers.length === 0 && !finalizer) {
+        if (catchClauseListLength(handlers) === 0 && !finalizer) {
             throwError({}, Messages.NoCatchOrFinally);
         }
 
-        return {
-            type: Syntax->TryStatement,
-            block: block,
-            handlers: handlers,
-            finalizer: finalizer
-        };
+        let TryStatementT* st = new TryStatementT;
+        st->block = block;
+        st->handlers = handlers;
+        st->finalizer = finalizer;
+        return st;
     }
 
     // 12.15 The debugger statement
 
-    function parseDebuggerStatement() {
+    function DebuggerStatementT* parseDebuggerStatement() {
         expectKeyword('debugger');
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->DebuggerStatement
-        };
+        return new DebuggerStatementT;
     }
 
     // 12 Statements
 
-    function parseStatement() {
-        let token = lookahead(),
-            expr,
-            labeledBody;
+    function StatementT* parseStatement() {
+        let token = lookahead();
+        let StatementT* labeledBody;
+        let ExpressionT* expr;
 
         if (token.type === Token.EOF) {
             throwUnexpected(token);
@@ -2803,9 +3588,9 @@ struct SyntaxT {
             case ';':
                 return parseEmptyStatement();
             case '{':
-                return parseBlock();
+                return castStatement(parseBlock(), Syntax->BlockStatement);
             case '(':
-                return parseExpressionStatement();
+                return castStatement(parseExpressionStatement(), Syntax->ExpressionStatement);
             default:
                 break;
             }
@@ -2814,33 +3599,33 @@ struct SyntaxT {
         if (token.type === Token.Keyword) {
             switch (token.value) {
             case 'break':
-                return parseBreakStatement();
+                return castStatement(parseBreakStatement(), Syntax->BreakStatement);
             case 'continue':
-                return parseContinueStatement();
+                return castStatement(parseContinueStatement(), Syntax->ContinueStatement);
             case 'debugger':
                 return parseDebuggerStatement();
             case 'do':
-                return parseDoWhileStatement();
+                return castStatement(parseDoWhileStatement(), Syntax->DoWhileStatement);
             case 'for':
                 return parseForStatement();
             case 'function':
-                return parseFunctionDeclaration();
+                return castStatement(parseFunctionDeclaration(), Syntax->FunctionDeclaration);
             case 'if':
-                return parseIfStatement();
+                return castStatement(parseIfStatement(), Syntax->IfStatement);
             case 'return':
-                return parseReturnStatement();
+                return castStatement(parseReturnStatement(), Syntax->ReturnStatement);
             case 'switch':
-                return parseSwitchStatement();
+                return castStatement(parseSwitchStatement(), Syntax->SwitchStatement);
             case 'throw':
-                return parseThrowStatement();
+                return castStatement(parseThrowStatement(), Syntax->ThrowStatement);
             case 'try':
-                return parseTryStatement();
+                return castStatement(parseTryStatement(), Syntax->TryStatement);
             case 'var':
-                return parseVariableStatement();
+                return castStatement(parseVariableStatement(), Syntax->VariableDeclaration);
             case 'while':
-                return parseWhileStatement();
+                return castStatement(parseWhileStatement(), Syntax->WhileStatement);
             case 'with':
-                return parseWithStatement();
+                return castStatement(parseWithStatement(), Syntax->WithStatement);
             default:
                 break;
             }
@@ -2849,37 +3634,39 @@ struct SyntaxT {
         expr = parseExpression();
 
         // 12.12 Labelled Statements
-        if ((expr.type === Syntax->Identifier) && match(':')) {
+        if ((expr->type === Syntax->Identifier) && match(':')) {
             lex();
 
-            if (Object.prototype.hasOwnProperty.call(state.labelSet, expr.name)) {
-                throwError({}, Messages.Redeclaration, 'Label', expr.name);
+            let name = readStr(expr->c.identifier->name);
+            if (Object.prototype.hasOwnProperty.call(state.labelSet, name)) {
+                throwError({}, Messages.Redeclaration, 'Label', name);
             }
 
-            state.labelSet[expr.name] = true;
+            state.labelSet[name] = true;
             labeledBody = parseStatement();
-            delete state.labelSet[expr.name];
+            delete state.labelSet[name];
 
-            return {
-                type: Syntax->LabeledStatement,
-                label: expr,
-                body: labeledBody
-            };
+            let LabeledStatementT* st = new LabeledStatementT;
+            st->label = expr->c.identifier;
+            st->body = labeledBody;
+            return castStatement(st, Syntax->LabeledStatement);
         }
 
         consumeSemicolon();
 
-        return {
-            type: Syntax->ExpressionStatement,
-            expression: expr
-        };
+        let ExpressionStatementT* st = new ExpressionStatementT;
+        st->expression = expr;
+        return castStatement(st, Syntax->ExpressionStatement);
     }
 
     // 13 Function Definition
 
-    function parseFunctionSourceElements() {
-        let sourceElement, sourceElements = [], token, directive, firstRestricted,
+    function BlockStatementT* parseFunctionSourceElements() {
+        let token, directive, firstRestricted,
             oldLabelSet, oldInIteration, oldInSwitch, oldInFunctionBody;
+        let StatementT* sourceElement;
+        let StatementListT* sourceElements = new StatementListT;
+        let StatementListT* cur = sourceElements;
 
         expect('{');
 
@@ -2889,12 +3676,14 @@ struct SyntaxT {
                 break;
             }
 
-            sourceElement = parseSourceElement();
-            sourceElements.push(sourceElement);
-            if (sourceElement.expression.type !== Syntax->Literal) {
+            cur->elem = parseSourceElement();
+            if (cur->elem->type === Syntax->ExpressionStatement && cur->elem->c.expression->type !== Syntax->Literal) {
                 // this is not directive
                 break;
             }
+            cur->next = new StatementListT;
+            cur = cur->next;
+
             directive = sliceSource(token.range[0] + 1, token.range[1] - 1);
             if (directive === 'use strict') {
                 strict = true;
@@ -2923,10 +3712,12 @@ struct SyntaxT {
                 break;
             }
             sourceElement = parseSourceElement();
-            if (typeof sourceElement === 'undefined') {
+            if (sourceElement === null) {
                 break;
             }
-            sourceElements.push(sourceElement);
+            cur->elem = sourceElement;
+            cur->next = new StatementListT;
+            cur = cur->next;
         }
 
         expect('}');
@@ -2936,14 +3727,18 @@ struct SyntaxT {
         state.inSwitch = oldInSwitch;
         state.inFunctionBody = oldInFunctionBody;
 
-        return {
-            type: Syntax->BlockStatement,
-            body: sourceElements
-        };
+        let BlockStatementT* block = new BlockStatementT;
+        block->body = sourceElements;
+        return block;
     }
 
-    function parseFunctionDeclaration() {
-        let id, param, params = [], body, token, firstRestricted, message, previousStrict, paramSet;
+    function FunctionDeclarationT* parseFunctionDeclaration() {
+        let token, firstRestricted, message, previousStrict, paramSet;
+        let IdentifierT* id;
+        let PatternListT* params = new PatternListT;
+        let PatternListT* cur = params;
+        let IdentifierT* param;
+        let BlockStatementT* body;
 
         expectKeyword('function');
         token = lookahead();
@@ -2988,8 +3783,10 @@ struct SyntaxT {
                         message = Messages.StrictParamDupe;
                     }
                 }
-                params.push(param);
-                paramSet[param.name] = true;
+                cur->elem = castPattern(param, Syntax->Identifier);
+                cur->next = new PatternListT;
+                cur = cur->next;
+                paramSet[readStr(param->name)] = true;
                 if (match(')')) {
                     break;
                 }
@@ -3006,16 +3803,21 @@ struct SyntaxT {
         }
         strict = previousStrict;
 
-        return {
-            type: Syntax->FunctionDeclaration,
-            id: id,
-            params: params,
-            body: body
-        };
+        let FunctionDeclarationT* decl = new FunctionDeclarationT;
+        decl->id = id;
+        decl->params = params;
+        decl->bodyType = Syntax->BlockStatement
+        decl->body.block = body;
+        return decl;
     }
 
-    function parseFunctionExpression() {
-        let token, id = null, firstRestricted, message, param, params = [], body, previousStrict, paramSet;
+    function FunctionExpressionT* parseFunctionExpression() {
+        let token, firstRestricted, message, previousStrict, paramSet;
+        let IdentifierT* id;
+        let PatternListT* params = new PatternListT;
+        let PatternListT* cur = params;
+        let IdentifierT* param;
+        let BlockStatementT* body;
 
         expectKeyword('function');
 
@@ -3063,8 +3865,10 @@ struct SyntaxT {
                         message = Messages.StrictParamDupe;
                     }
                 }
-                params.push(param);
-                paramSet[param.name] = true;
+                cur->elem = castPattern(param, Syntax->Identifier);
+                cur->next = new PatternListT;
+                cur = cur->next;
+                paramSet[readStr(param->name)] = true;
                 if (match(')')) {
                     break;
                 }
@@ -3081,26 +3885,26 @@ struct SyntaxT {
         }
         strict = previousStrict;
 
-        return {
-            type: Syntax->FunctionExpression,
-            id: id,
-            params: params,
-            body: body
-        };
+        let FunctionExpressionT* expr = new FunctionExpressionT;
+        expr->id = id;
+        expr->params = params;
+        expr->bodyType = Syntax->BlockStatement;
+        expr->body.block = body;
+        return expr;
     }
 
     // 14 Program
 
-    function parseSourceElement() {
+    function StatementT* parseSourceElement() {
         let token = lookahead();
 
         if (token.type === Token.Keyword) {
             switch (token.value) {
             case 'const':
             case 'let':
-                return parseConstLetDeclaration(token.value);
+                return castStatement(parseConstLetDeclaration(convertVarKind(token.value)), Syntax->VariableDeclaration);
             case 'function':
-                return parseFunctionDeclaration();
+                return castStatement(parseFunctionDeclaration(), Syntax->FunctionDeclaration);
             default:
                 return parseStatement();
             }
@@ -3109,10 +3913,15 @@ struct SyntaxT {
         if (token.type !== Token.EOF) {
             return parseStatement();
         }
+
+        return null;
     }
 
-    function parseSourceElements() {
-        let sourceElement, sourceElements = [], token, directive, firstRestricted;
+    function StatementListT* parseSourceElements() {
+        let token, directive, firstRestricted;
+        let StatementT* sourceElement;
+        let StatementListT* sourceElements = new StatementListT;
+        let StatementListT* cur = sourceElements;
 
         while (index < length) {
             token = lookahead();
@@ -3121,8 +3930,10 @@ struct SyntaxT {
             }
 
             sourceElement = parseSourceElement();
-            sourceElements.push(sourceElement);
-            if (sourceElement.expression.type !== Syntax->Literal) {
+            cur->elem = sourceElement;
+            cur->next = new StatementListT;
+            cur = cur->next;
+            if (sourceElement->type !== Syntax->ExpressionStatement && sourceElement->c.expression->type !== Syntax->Literal) {
                 // this is not directive
                 break;
             }
@@ -3141,20 +3952,21 @@ struct SyntaxT {
 
         while (index < length) {
             sourceElement = parseSourceElement();
-            if (typeof sourceElement === 'undefined') {
+            if (sourceElement === null) {
                 break;
             }
-            sourceElements.push(sourceElement);
+            cur->elem = sourceElement;
+            cur->next = new StatementListT;
+            cur = cur->next;
         }
         return sourceElements;
     }
 
-    function parseProgram() {
-        let program;
+    function ProgramT* parseProgram() {
+        let ProgramT* program = new ProgramT;
         strict = false;
-        program = new ProgramT;
-        program.type = Syntax->Program;
-        program.body = parseSourceElements();
+        program->type = Syntax->Program;
+        program->body = parseSourceElements();
         return program;
     }
 
@@ -3316,19 +4128,17 @@ struct SyntaxT {
         return regex;
     }
 
-    function createLiteral(token) {
-        return {
-            type: Syntax->Literal,
-            value: token.value
-        };
+    function LiteralT* createLiteral(token) {
+        let LiteralT* literal = new LiteralT;
+        literal->value = convertStr(token.value);
+        return literal;
     }
 
-    function createRawLiteral(token) {
-        return {
-            type: Syntax->Literal,
-            value: token.value,
-            raw: sliceSource(token.range[0], token.range[1])
-        };
+    function LiteralT* createRawLiteral(token) {
+        let LiteralT* literal = new LiteralT;
+        literal->value = convertStr(token.value);
+        literal->raw = convertStr(sliceSource(token.range[0], token.range[1]));
+        return literal;
     }
 
     function dyn2dyn2dyn wrapTrackingFunction(range, loc) {
@@ -3470,42 +4280,42 @@ struct SyntaxT {
             extra.parseVariableDeclaration = parseVariableDeclaration;
             extra.parseVariableIdentifier = parseVariableIdentifier;
 
-            parseAdditiveExpression = wrapTracking(extra.parseAdditiveExpression);
-            parseAssignmentExpression = wrapTracking(extra.parseAssignmentExpression);
-            parseBitwiseANDExpression = wrapTracking(extra.parseBitwiseANDExpression);
-            parseBitwiseORExpression = wrapTracking(extra.parseBitwiseORExpression);
-            parseBitwiseXORExpression = wrapTracking(extra.parseBitwiseXORExpression);
-            parseBlock = wrapTracking(extra.parseBlock);
-            parseFunctionSourceElements = wrapTracking(extra.parseFunctionSourceElements);
-            parseCallMember = wrapTracking(extra.parseCallMember);
-            parseCatchClause = wrapTracking(extra.parseCatchClause);
-            parseComputedMember = wrapTracking(extra.parseComputedMember);
-            parseConditionalExpression = wrapTracking(extra.parseConditionalExpression);
-            parseConstLetDeclaration = wrapTracking(extra.parseConstLetDeclaration);
-            parseEqualityExpression = wrapTracking(extra.parseEqualityExpression);
-            parseExpression = wrapTracking(extra.parseExpression);
-            parseForVariableDeclaration = wrapTracking(extra.parseForVariableDeclaration);
-            parseFunctionDeclaration = wrapTracking(extra.parseFunctionDeclaration);
-            parseFunctionExpression = wrapTracking(extra.parseFunctionExpression);
-            parseLogicalANDExpression = wrapTracking(extra.parseLogicalANDExpression);
-            parseLogicalORExpression = wrapTracking(extra.parseLogicalORExpression);
-            parseMultiplicativeExpression = wrapTracking(extra.parseMultiplicativeExpression);
-            parseNewExpression = wrapTracking(extra.parseNewExpression);
-            parseNonComputedMember = wrapTracking(extra.parseNonComputedMember);
-            parseNonComputedProperty = wrapTracking(extra.parseNonComputedProperty);
-            parseObjectProperty = wrapTracking(extra.parseObjectProperty);
-            parseObjectPropertyKey = wrapTracking(extra.parseObjectPropertyKey);
-            parsePostfixExpression = wrapTracking(extra.parsePostfixExpression);
-            parsePrimaryExpression = wrapTracking(extra.parsePrimaryExpression);
-            parseProgram = wrapTracking(extra.parseProgram);
-            parsePropertyFunction = wrapTracking(extra.parsePropertyFunction);
-            parseRelationalExpression = wrapTracking(extra.parseRelationalExpression);
-            parseStatement = wrapTracking(extra.parseStatement);
-            parseShiftExpression = wrapTracking(extra.parseShiftExpression);
-            parseSwitchCase = wrapTracking(extra.parseSwitchCase);
-            parseUnaryExpression = wrapTracking(extra.parseUnaryExpression);
-            parseVariableDeclaration = wrapTracking(extra.parseVariableDeclaration);
-            parseVariableIdentifier = wrapTracking(extra.parseVariableIdentifier);
+            parseAdditiveExpression = (ExpressionF)(wrapTracking(extra.parseAdditiveExpression));
+            parseAssignmentExpression = (ExpressionF)(wrapTracking(extra.parseAssignmentExpression));
+            parseBitwiseANDExpression = (ExpressionF)(wrapTracking(extra.parseBitwiseANDExpression));
+            parseBitwiseORExpression = (ExpressionF)(wrapTracking(extra.parseBitwiseORExpression));
+            parseBitwiseXORExpression = (ExpressionF)(wrapTracking(extra.parseBitwiseXORExpression));
+            parseBlock = (BlockStatementF)(wrapTracking(extra.parseBlock));
+            parseFunctionSourceElements = (BlockStatementF)(wrapTracking(extra.parseFunctionSourceElements));
+            parseCallMember = (CallExpressionF)(wrapTracking(extra.parseCallMember));
+            parseCatchClause = (CatchClauseF)(wrapTracking(extra.parseCatchClause));
+            parseComputedMember = (MemberExpressionF)(wrapTracking(extra.parseComputedMember));
+            parseConditionalExpression = (ExpressionF)(wrapTracking(extra.parseConditionalExpression));
+            parseConstLetDeclaration = (VariableDeclarationF_u8)(wrapTracking(extra.parseConstLetDeclaration));
+            parseEqualityExpression = (ExpressionF)(wrapTracking(extra.parseEqualityExpression));
+            parseExpression = (ExpressionF)(wrapTracking(extra.parseExpression));
+            parseForVariableDeclaration = (VariableDeclarationF)(wrapTracking(extra.parseForVariableDeclaration));
+            parseFunctionDeclaration = (FunctionDeclarationF)(wrapTracking(extra.parseFunctionDeclaration));
+            parseFunctionExpression = (FunctionExpressionF)(wrapTracking(extra.parseFunctionExpression));
+            parseLogicalANDExpression = (ExpressionF)(wrapTracking(extra.parseLogicalANDExpression));
+            parseLogicalORExpression = (ExpressionF)(wrapTracking(extra.parseLogicalORExpression));
+            parseMultiplicativeExpression = (ExpressionF)(wrapTracking(extra.parseMultiplicativeExpression));
+            parseNewExpression = (ExpressionF)(wrapTracking(extra.parseNewExpression));
+            parseNonComputedMember = (MemberExpressionF)(wrapTracking(extra.parseNonComputedMember));
+            parseNonComputedProperty = (IdentifierF)(wrapTracking(extra.parseNonComputedProperty));
+            parseObjectProperty = (ObjectPropertiesF)(wrapTracking(extra.parseObjectProperty));
+            parseObjectPropertyKey = (LiteralOrIdentifierF)(wrapTracking(extra.parseObjectPropertyKey));
+            parsePostfixExpression = (ExpressionF)(wrapTracking(extra.parsePostfixExpression));
+            parsePrimaryExpression = (ExpressionF)(wrapTracking(extra.parsePrimaryExpression));
+            parseProgram = (ProgramF)(wrapTracking(extra.parseProgram));
+            parsePropertyFunction = (FunctionExpressionF_PatternListT_dyn)(wrapTracking(extra.parsePropertyFunction));
+            parseRelationalExpression = (ExpressionF)(wrapTracking(extra.parseRelationalExpression));
+            parseStatement = (StatementF)(wrapTracking(extra.parseStatement));
+            parseShiftExpression = (ExpressionF)(wrapTracking(extra.parseShiftExpression));
+            parseSwitchCase = (SwitchCaseF)(wrapTracking(extra.parseSwitchCase));
+            parseUnaryExpression = (ExpressionF)(wrapTracking(extra.parseUnaryExpression));
+            parseVariableDeclaration = (VariableDeclaratorF)(wrapTracking(extra.parseVariableDeclaration));
+            parseVariableIdentifier = (IdentifierF)(wrapTracking(extra.parseVariableIdentifier));
         }
 
         if (typeof extra.tokens !== 'undefined') {
@@ -3523,46 +4333,46 @@ struct SyntaxT {
         }
 
         if (extra.raw) {
-            createLiteral = (dyn2dyn) (extra.createLiteral);
+            createLiteral = (LiteralF) (extra.createLiteral);
         }
 
         if (extra.range || extra.loc) {
-            parseAdditiveExpression = (dyn_func)(extra.parseAdditiveExpression);
-            parseAssignmentExpression = (dyn_func)(extra.parseAssignmentExpression);
-            parseBitwiseANDExpression = (dyn_func)(extra.parseBitwiseANDExpression);
-            parseBitwiseORExpression = (dyn_func)(extra.parseBitwiseORExpression);
-            parseBitwiseXORExpression = (dyn_func)(extra.parseBitwiseXORExpression);
-            parseBlock = (dyn_func)(extra.parseBlock);
-            parseFunctionSourceElements = (dyn_func)(extra.parseFunctionSourceElements);
-            parseCallMember = (dyn_func)(extra.parseCallMember);
-            parseCatchClause = (dyn_func)(extra.parseCatchClause);
-            parseComputedMember = (dyn_func)(extra.parseComputedMember);
-            parseConditionalExpression = (dyn_func)(extra.parseConditionalExpression);
-            parseConstLetDeclaration = (dyn_func)(extra.parseConstLetDeclaration);
-            parseEqualityExpression = (dyn_func)(extra.parseEqualityExpression);
-            parseExpression = (dyn_func)(extra.parseExpression);
-            parseForVariableDeclaration = (dyn_func)(extra.parseForVariableDeclaration);
-            parseFunctionDeclaration = (dyn_func)(extra.parseFunctionDeclaration);
-            parseFunctionExpression = (dyn_func)(extra.parseFunctionExpression);
-            parseLogicalANDExpression = (dyn_func)(extra.parseLogicalANDExpression);
-            parseLogicalORExpression = (dyn_func)(extra.parseLogicalORExpression);
-            parseMultiplicativeExpression = (dyn_func)(extra.parseMultiplicativeExpression);
-            parseNewExpression = (dyn_func)(extra.parseNewExpression);
-            parseNonComputedMember = (dyn_func)(extra.parseNonComputedMember);
-            parseNonComputedProperty = (dyn_func)(extra.parseNonComputedProperty);
-            parseObjectProperty = (dyn_func)(extra.parseObjectProperty);
-            parseObjectPropertyKey = (dyn_func)(extra.parseObjectPropertyKey);
-            parsePrimaryExpression = (dyn_func)(extra.parsePrimaryExpression);
-            parsePostfixExpression = (dyn_func)(extra.parsePostfixExpression);
-            parseProgram = (dyn_func)(extra.parseProgram);
-            parsePropertyFunction = (dyn_func)(extra.parsePropertyFunction);
-            parseRelationalExpression = (dyn_func)(extra.parseRelationalExpression);
-            parseStatement = (dyn_func)(extra.parseStatement);
-            parseShiftExpression = (dyn_func)(extra.parseShiftExpression);
-            parseSwitchCase = (dyn_func)(extra.parseSwitchCase);
-            parseUnaryExpression = (dyn_func)(extra.parseUnaryExpression);
-            parseVariableDeclaration = (dyn_func)(extra.parseVariableDeclaration);
-            parseVariableIdentifier = (dyn_func)(extra.parseVariableIdentifier);
+            parseAdditiveExpression = (ExpressionF)(extra.parseAdditiveExpression);
+            parseAssignmentExpression = (ExpressionF)(extra.parseAssignmentExpression);
+            parseBitwiseANDExpression = (ExpressionF)(extra.parseBitwiseANDExpression);
+            parseBitwiseORExpression = (ExpressionF)(extra.parseBitwiseORExpression);
+            parseBitwiseXORExpression = (ExpressionF)(extra.parseBitwiseXORExpression);
+            parseBlock = (BlockStatementF)(extra.parseBlock);
+            parseFunctionSourceElements = (BlockStatementF)(extra.parseFunctionSourceElements);
+            parseCallMember = (CallExpressionF)(extra.parseCallMember);
+            parseCatchClause = (CatchClauseF)(extra.parseCatchClause);
+            parseComputedMember = (MemberExpressionF)(extra.parseComputedMember);
+            parseConditionalExpression = (ExpressionF)(extra.parseConditionalExpression);
+            parseConstLetDeclaration = (VariableDeclarationF_u8)(extra.parseConstLetDeclaration);
+            parseEqualityExpression = (ExpressionF)(extra.parseEqualityExpression);
+            parseExpression = (ExpressionF)(extra.parseExpression);
+            parseForVariableDeclaration = (VariableDeclarationF)(extra.parseForVariableDeclaration);
+            parseFunctionDeclaration = (FunctionDeclarationF)(extra.parseFunctionDeclaration);
+            parseFunctionExpression = (FunctionExpressionF)(extra.parseFunctionExpression);
+            parseLogicalANDExpression = (ExpressionF)(extra.parseLogicalANDExpression);
+            parseLogicalORExpression = (ExpressionF)(extra.parseLogicalORExpression);
+            parseMultiplicativeExpression = (ExpressionF)(extra.parseMultiplicativeExpression);
+            parseNewExpression = (ExpressionF)(extra.parseNewExpression);
+            parseNonComputedMember = (MemberExpressionF)(extra.parseNonComputedMember);
+            parseNonComputedProperty = (IdentifierF)(extra.parseNonComputedProperty);
+            parseObjectProperty = (ObjectPropertiesF)(extra.parseObjectProperty);
+            parseObjectPropertyKey = (LiteralOrIdentifierF)(extra.parseObjectPropertyKey);
+            parsePostfixExpression = (ExpressionF)(extra.parsePostfixExpression);
+            parsePrimaryExpression = (ExpressionF)(extra.parsePrimaryExpression);
+            parseProgram = (ProgramF)(extra.parseProgram);
+            parsePropertyFunction = (FunctionExpressionF_PatternListT_dyn)(extra.parsePropertyFunction);
+            parseRelationalExpression = (ExpressionF)(extra.parseRelationalExpression);
+            parseStatement = (StatementF)(extra.parseStatement);
+            parseShiftExpression = (ExpressionF)(extra.parseShiftExpression);
+            parseSwitchCase = (SwitchCaseF)(extra.parseSwitchCase);
+            parseUnaryExpression = (ExpressionF)(extra.parseUnaryExpression);
+            parseVariableDeclaration = (VariableDeclaratorF)(extra.parseVariableDeclaration);
+            parseVariableIdentifier = (IdentifierF)(extra.parseVariableIdentifier);
         }
 
         if (typeof extra.scanRegExp === 'function') {
@@ -3582,7 +4392,7 @@ struct SyntaxT {
     }
 
     function parse(code, options) {
-        let program;
+        let program = {};
 
         if (typeof code !== 'string' && !(code instanceof String)) {
             code = String(code);
@@ -3637,7 +4447,7 @@ struct SyntaxT {
 
         patch();
         try {
-            program = parseProgram();
+            program.statements = parseProgram();
             if (typeof extra.comments !== 'undefined') {
                 program.comments = extra.comments;
             }
