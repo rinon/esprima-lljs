@@ -878,11 +878,15 @@ struct SyntaxT {
         return l-1;
     }
 
-    function StringT* convertStr(str) {
+    // let strByteCount = 0;
+    function StringT* convertStr(o) {
         let StringT* newStr = new StringT;
-        if (!str || str.length == 0) {
+        if (!o) {
+            newStr->start = 0;
+            // strByteCount += 1;
             return newStr;
         }
+        let str = o.toString();
         newStr->start = malloc((u32)(str.length+1));
         let byte* cur = newStr->start;
         for (let i=0, l=str.length; i<l; i++) {
@@ -890,6 +894,7 @@ struct SyntaxT {
             cur++;
         }
         *cur = 0;
+        // strByteCount += str.length+1;
         return newStr;
     }
 
@@ -4492,6 +4497,10 @@ struct SyntaxT {
 
         return types;
     }());
+
+    // exports.report = function () {
+    //     return "String bytes allocated: " + (strByteCount/8).toString();
+    // };
 
 }(typeof exports === 'undefined' ? (esprima = {}) : exports));
 /* vim: set sw=4 ts=4 et tw=80 : */
