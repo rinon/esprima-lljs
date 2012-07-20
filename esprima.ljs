@@ -2178,7 +2178,7 @@ struct SyntaxT {
 
         previousStrict = strict;
         body = parseFunctionSourceElements();
-        if (first && strict && isRestrictedWord(param[0].name)) {
+        if (first && strict && isRestrictedWord(readStr(param->elem->c.identifier->name))) {
             throwError(first, Messages.StrictParamName);
         }
         strict = previousStrict;
