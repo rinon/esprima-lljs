@@ -294,6 +294,10 @@ struct FunctionExpressionT {
     PatternListT* params;
     u8 bodyType;
     BlockOrExpressionU body;
+    ExpressionListT* defaults;
+    IdentifierT* rest;
+    u8 generator;
+    u8 expression;
     MetaT meta;
 };
 
@@ -681,6 +685,7 @@ struct SyntaxT {
         UnterminatedRegExp:  'Invalid regular expression: missing /',
         InvalidLHSInAssignment:  'Invalid left-hand side in assignment',
         InvalidLHSInForIn:  'Invalid left-hand side in for-in',
+        MultipleDefaultsInSwitch: 'More than one default clause in switch statement',
         NoCatchOrFinally:  'Missing catch or finally after try',
         UnknownLabel: 'Undefined label \'%0\'',
         Redeclaration: '%0 \'%1\' has already been declared',
@@ -2006,7 +2011,6 @@ struct SyntaxT {
     }
 
     function throwErrorTolerant() {
-        let error;
         try {
             throwError.apply(null, arguments);
         } catch (e) {
@@ -2022,8 +2026,6 @@ struct SyntaxT {
     // Throw an exception because of the token.
 
     function throwUnexpected(token) {
-        let s;
-
         if (token.type === Token.EOF) {
             throwError(token, Messages.UnexpectedEOS);
         }
@@ -2191,8 +2193,12 @@ struct SyntaxT {
         let FunctionExpressionT* expr = new FunctionExpressionT;
         expr->id = null;
         expr->params = param;
+        expr->defaults = new ExpressionListT;
         expr->bodyType = Syntax->BlockStatement;
         expr->body.block = body;
+        expr->rest = null;
+        expr->generator = 0;
+        expr->expression = 0;
         return expr;
     }
 
@@ -2280,7 +2286,7 @@ struct SyntaxT {
     }
 
     function ObjectExpressionT* parseObjectInitialiser() {
-        let token, name, kind, map = {};
+        let name, kind, map = {};
 
         let ObjectExpressionT* expr = new ObjectExpressionT;
         expr->properties = new ObjectPropertiesListT;
@@ -2665,36 +2671,18 @@ struct SyntaxT {
         previousAllowIn = state.allowIn;
         state.allowIn = true;
         expr = parseShiftExpression();
-        state.allowIn = previousAllowIn;
 
-        if (match('<') || match('>') || match('<=') || match('>=')) {
+        while (match('<') || match('>') || match('<=') || match('>=') || (previousAllowIn && matchKeyword('in')) || matchKeyword('instanceof')) {
             let BinaryExpressionT* binary = new BinaryExpressionT;
             binary->operator = convertOperator(lex().value);
             binary->left = expr;
-            binary->right = parseRelationalExpression();
-            expr = new ExpressionT;
-            expr->type = Syntax->BinaryExpression;
-            expr->c.binary = binary;
-        } else if (state.allowIn && matchKeyword('in')) {
-            lex();
-            let BinaryExpressionT* binary = new BinaryExpressionT;
-            binary->operator = convertOperator('in');
-            binary->left = expr;
-            binary->right = parseRelationalExpression();
-            expr = new ExpressionT;
-            expr->type = Syntax->BinaryExpression;
-            expr->c.binary = binary;
-        } else if (matchKeyword('instanceof')) {
-            lex();
-            let BinaryExpressionT* binary = new BinaryExpressionT;
-            binary->operator = convertOperator('instanceof');
-            binary->left = expr;
-            binary->right = parseRelationalExpression();
+            binary->right = parseShiftExpression();
             expr = new ExpressionT;
             expr->type = Syntax->BinaryExpression;
             expr->c.binary = binary;
         }
 
+        state.allowIn = previousAllowIn;
         return expr;
     }
 
@@ -3415,6 +3403,7 @@ struct SyntaxT {
         let StatementListT* consequent = new StatementListT;
         let StatementListT* cur = consequent;
         let StatementT* statement;
+        let clause, defaultFound;
 
         if (matchKeyword('default')) {
             lex();
@@ -3449,6 +3438,8 @@ struct SyntaxT {
         let SwitchStatementT* st;
         let ExpressionT* discriminant;
         let SwitchCaseListT* cases;
+        let defaultFound;
+        let SwitchCaseT* clause;
 
         expectKeyword('switch');
 
@@ -3472,12 +3463,20 @@ struct SyntaxT {
 
         oldInSwitch = state.inSwitch;
         state.inSwitch = true;
+        defaultFound = false;
 
         while (index < length) {
             if (match('}')) {
                 break;
             }
-            cur->elem = parseSwitchCase();
+            clause = parseSwitchCase();
+            if (clause.test === null) {
+                if (defaultFound) {
+                    throwError({}, Messages.MultipleDefaultsInSwitch);
+                }
+                defaultFound = true;
+            }
+            cur->elem = clause;
             cur->next = new SwitchCaseListT;
             cur = cur->next;
         }
@@ -3811,8 +3810,12 @@ struct SyntaxT {
         let FunctionDeclarationT* decl = new FunctionDeclarationT;
         decl->id = id;
         decl->params = params;
-        decl->bodyType = Syntax->BlockStatement
-        decl->body.block = body;
+        expr->defaults = new ExpressionListT;
+        expr->bodyType = Syntax->BlockStatement;
+        expr->body.block = body;
+        expr->rest = null;
+        expr->generator = 0;
+        expr->expression = 0;
         return decl;
     }
 
@@ -3893,8 +3896,12 @@ struct SyntaxT {
         let FunctionExpressionT* expr = new FunctionExpressionT;
         expr->id = id;
         expr->params = params;
+        expr->defaults = new ExpressionListT;
         expr->bodyType = Syntax->BlockStatement;
         expr->body.block = body;
+        expr->rest = null;
+        expr->generator = 0;
+        expr->expression = 0;
         return expr;
     }
 
@@ -3978,7 +3985,7 @@ struct SyntaxT {
     // The following functions are needed only when the option to preserve
     // the comments is active.
 
-    function addComment(start, end, type, value) {
+    function addComment(type, value, start, end, loc) {
         assert(typeof start === 'number', 'Comment must have valid position');
 
         // Because the way the actual token is scanned, often the comments
@@ -3992,14 +3999,15 @@ struct SyntaxT {
         }
 
         extra.comments.push({
-            range: [start, end],
             type: type,
-            value: value
+            value: value,
+            range: [start, end],
+            loc: loc
         });
     }
 
     function scanComment() {
-        let comment, ch, start, blockComment, lineComment;
+        let comment, ch, loc, start, blockComment, lineComment;
 
         comment = '';
         blockComment = false;
@@ -4010,19 +4018,27 @@ struct SyntaxT {
 
             if (lineComment) {
                 ch = nextChar();
-                if (index >= length) {
+                if (isLineTerminator(ch)) {
+                    loc.end = {
+                        line: lineNumber,
+                        column: index - lineStart - 1
+                    };
                     lineComment = false;
-                    comment += ch;
-                    addComment(start, index, 'Line', comment);
-                } else if (isLineTerminator(ch)) {
-                    lineComment = false;
-                    addComment(start, index, 'Line', comment);
+                    addComment('Line', comment, start, index - 1, loc);
                     if (ch === '\r' && source[index] === '\n') {
                         ++index;
                     }
                     ++lineNumber;
                     lineStart = index;
                     comment = '';
+                } else if (index >= length) {
+                    lineComment = false;
+                    comment += ch;
+                    loc.end = {
+                        line: lineNumber,
+                        column: length - lineStart
+                    };
+                    addComment('Line', comment, start, length, loc);
                 } else {
                     comment += ch;
                 }
@@ -4052,7 +4068,11 @@ struct SyntaxT {
                             comment = comment.substr(0, comment.length - 1);
                             blockComment = false;
                             ++index;
-                            addComment(start, index, 'Block', comment);
+                            loc.end = {
+                                line: lineNumber,
+                                column: index - lineStart
+                            };
+                            addComment('Block', comment, start, index, loc);
                             comment = '';
                         }
                     }
