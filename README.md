@@ -1,3 +1,16 @@
+### Low-Level Javascript
+
+This is a port of Esprima to [Low-Level JavaScript](http://lljs.org)
+for research and testing purposes. I made this mainly to test out
+LLJS, so there may be bugs... Use at your own risk!
+
+It turned out to not be any faster than the original Esprima at
+allocation (although it is close to the same speed), but it does
+perform well during traversal of the AST.
+
+Esprima README
+--------------
+
 Esprima ([esprima.org](http://esprima.org)) is an educational
 [ECMAScript](http://www.ecma-international.org/publications/standards/Ecma-262.htm)
 (also popularly known as [JavaScript](http://en.wikipedia.org/wiki/JavaScript>JavaScript))
