@@ -229,6 +229,10 @@ struct FunctionDeclarationT {
     PatternListT* params;
     u8 bodyType;
     BlockOrExpressionU body;
+    ExpressionListT* defaults;
+    IdentifierT* rest;
+    u8 generator;
+    u8 expression;
     MetaT meta;
 };
 
@@ -3470,7 +3474,7 @@ struct SyntaxT {
                 break;
             }
             clause = parseSwitchCase();
-            if (clause.test === null) {
+            if (clause->test === null) {
                 if (defaultFound) {
                     throwError({}, Messages.MultipleDefaultsInSwitch);
                 }
@@ -3810,12 +3814,12 @@ struct SyntaxT {
         let FunctionDeclarationT* decl = new FunctionDeclarationT;
         decl->id = id;
         decl->params = params;
-        expr->defaults = new ExpressionListT;
-        expr->bodyType = Syntax->BlockStatement;
-        expr->body.block = body;
-        expr->rest = null;
-        expr->generator = 0;
-        expr->expression = 0;
+        decl->defaults = new ExpressionListT;
+        decl->bodyType = Syntax->BlockStatement;
+        decl->body.block = body;
+        decl->rest = null;
+        decl->generator = 0;
+        decl->expression = 0;
         return decl;
     }
 
@@ -4080,13 +4084,33 @@ struct SyntaxT {
             } else if (ch === '/') {
                 ch = source[index + 1];
                 if (ch === '/') {
+                    loc = {
+                        start: {
+                            line: lineNumber,
+                            column: index - lineStart
+                        }
+                    };
                     start = index;
                     index += 2;
                     lineComment = true;
+                    if (index >= length) {
+                        loc.end = {
+                            line: lineNumber,
+                            column: index - lineStart
+                        };
+                        lineComment = false;
+                        addComment('Line', comment, start, index, loc);
+                    }
                 } else if (ch === '*') {
                     start = index;
                     index += 2;
                     blockComment = true;
+                    loc = {
+                        start: {
+                            line: lineNumber,
+                            column: index - lineStart - 2
+                        }
+                    };
                     if (index >= length) {
                         throwError({}, Messages.UnexpectedToken, 'ILLEGAL');
                     }
@@ -4108,10 +4132,44 @@ struct SyntaxT {
         }
     }
 
+    function filterCommentLocation() {
+        let i, entry, comment, comments = [];
+
+        for (i = 0; i < extra.comments.length; ++i) {
+            entry = extra.comments[i];
+            comment = {
+                type: entry.type,
+                value: entry.value
+            };
+            if (extra.range) {
+                comment.range = entry.range;
+            }
+            if (extra.loc) {
+                comment.loc = entry.loc;
+            }
+            comments.push(comment);
+        }
+
+        extra.comments = comments;
+    }
+
     function collectToken() {
-        let token = extra.advance(),
-            range,
-            value;
+        let start, loc, token, range, value;
+
+        skipComment();
+        start = index;
+        loc = {
+            start: {
+                line: lineNumber,
+                column: index - lineStart
+            }
+        };
+
+        token = extra.advance();
+        loc.end = {
+            line: lineNumber,
+            column: index - lineStart
+        };
 
         if (token.type !== Token.EOF) {
             range = [token.range[0], token.range[1]];
@@ -4119,7 +4177,8 @@ struct SyntaxT {
             extra.tokens.push({
                 type: TokenName[token.type],
                 value: value,
-                range: range
+                range: range,
+                loc: loc
             });
         }
 
@@ -4127,12 +4186,23 @@ struct SyntaxT {
     }
 
     function collectRegex() {
-        let pos, regex, token;
+        let pos, loc, regex, token;
 
         skipComment();
 
         pos = index;
+        loc = {
+            start: {
+                line: lineNumber,
+                column: index - lineStart
+            }
+        };
+
         regex = extra.scanRegExp();
+        loc.end = {
+            line: lineNumber,
+            column: index - lineStart
+        };
 
         // Pop the previous token, which is likely '/' or '/='
         if (extra.tokens.length > 0) {
@@ -4147,10 +4217,32 @@ struct SyntaxT {
         extra.tokens.push({
             type: 'RegularExpression',
             value: regex.literal,
-            range: [pos, index]
+            range: [pos, index],
+            loc: loc
         });
 
         return regex;
+    }
+
+    function filterTokenLocation() {
+        let i, entry, token, tokens = [];
+
+        for (i = 0; i < extra.tokens.length; ++i) {
+            entry = extra.tokens[i];
+            token = {
+                type: entry.type,
+                value: entry.value
+            };
+            if (extra.range) {
+                token.range = entry.range;
+            }
+            if (extra.loc) {
+                token.loc = entry.loc;
+            }
+            tokens.push(token);
+        }
+
+        extra.tokens = tokens;
     }
 
     function LiteralT* createLiteral(token) {
@@ -4472,11 +4564,13 @@ struct SyntaxT {
 
         patch();
         try {
-            program.statements = parseProgram();
+            program = parseProgram();
             if (typeof extra.comments !== 'undefined') {
+                filterCommentLocation();
                 program.comments = extra.comments;
             }
             if (typeof extra.tokens !== 'undefined') {
+                filterTokenLocation();
                 program.tokens = extra.tokens;
             }
             if (typeof extra.errors !== 'undefined') {
